@@ -24,9 +24,9 @@
 //                   GitHub and commits as themselves (per-session GitHubHost).
 
 import http from "node:http";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { dirname, join, relative, sep } from "node:path";
+import { dirname, join, relative, sep, normalize, extname } from "node:path";
 import { MemoryHost, GitHubHost, asReadHost } from "@gloss/git";
 import { commitAction, commitCheckpoint, commitFile, commitDelete } from "@gloss/git";
 import { readReviewFiles } from "@gloss/git";
@@ -95,12 +95,14 @@ function patHost() {
   return new GitHubHost({ owner, repo, token });
 }
 
-// OAuth mode still needs to know the repo/owner; tokens come per-session.
+// OAuth mode can run without a pinned repo: the reviewer picks a repo after
+// signing in (the web app lists their push-accessible repos). GLOSS_OWNER/REPO
+// remain optional defaults if you do want to pin one.
 function requireRepoEnv() {
   const owner = process.env.GLOSS_OWNER;
   const repo = process.env.GLOSS_REPO;
   if (!owner || !repo) {
-    throw new Error("@gloss/server: OAuth mode needs GLOSS_OWNER and GLOSS_REPO.");
+    console.log("oauth mode: no default GLOSS_OWNER/REPO set — reviewers choose a repo after sign-in.");
   }
   return { owner, repo };
 }
@@ -117,6 +119,16 @@ function* walk(root) {
 
 const sessions = createSessionStore();
 const SECURE_COOKIE = BASE_URL.startsWith("https://");
+
+// In production the Node server also serves the built SPA so the frontend and
+// API share one origin (no CORS; the session cookie just works). The web build
+// lands in apps/web/dist; in dev this folder may not exist and Vite serves the
+// SPA instead, so static serving is simply skipped.
+const WEB_DIST = process.env.GLOSS_WEB_DIST
+  ? normalize(process.env.GLOSS_WEB_DIST)
+  : join(__dirname, "../../../apps/web/dist");
+const SERVE_WEB = existsSync(join(WEB_DIST, "index.html"));
+if (SERVE_WEB) console.log(`serving SPA from ${WEB_DIST}`);
 
 // In dev/pat the host is a fixed singleton. In oauth it's built per request from
 // the reviewer's session token.
@@ -163,9 +175,11 @@ function userFor(req) {
 const REPO_INFO = MODE === "dev"
   ? { owner: null, repo: "examples/repo", slug: "examples/repo", branch: "main", mode: "dev", auth: "dev" }
   : {
-      owner: process.env.GLOSS_OWNER,
-      repo: process.env.GLOSS_REPO,
-      slug: `${process.env.GLOSS_OWNER}/${process.env.GLOSS_REPO}`,
+      owner: process.env.GLOSS_OWNER || null,
+      repo: process.env.GLOSS_REPO || null,
+      slug: process.env.GLOSS_OWNER && process.env.GLOSS_REPO
+        ? `${process.env.GLOSS_OWNER}/${process.env.GLOSS_REPO}`
+        : null,
       branch: process.env.GLOSS_BRANCH || "main",
       mode: "github",
       auth: MODE, // "oauth" | "pat"
@@ -421,6 +435,15 @@ const server = http.createServer(async (req, res) => {
       return res.end();
     }
 
+    // Static SPA (production). Anything that isn't an API route falls through to
+    // here: serve the requested file from the build, or index.html for client
+    // routes (SPA fallback). API routes already returned above, so this never
+    // shadows them.
+    if (SERVE_WEB && (req.method === "GET" || req.method === "HEAD")) {
+      const served = serveStatic(req, res, url.pathname);
+      if (served) return;
+    }
+
     return json(res, 404, { error: "no route" });
   } catch (err) {
     console.error(`[${req.method} ${url.pathname}]`, err?.stack || err);
@@ -434,6 +457,51 @@ function readBody(req) {
     req.on("data", (c) => (d += c));
     req.on("end", () => resolve(d));
   });
+}
+
+// --- static SPA serving ----------------------------------------------------
+const MIME = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".ico": "image/x-icon",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".map": "application/json; charset=utf-8",
+};
+
+// Serve a file from WEB_DIST for GET/HEAD, with SPA fallback to index.html for
+// client-side routes. Returns true if it handled the response. Path traversal is
+// blocked by resolving and confirming the result stays inside WEB_DIST.
+function serveStatic(req, res, pathname) {
+  const rel = decodeURIComponent(pathname).replace(/^\/+/, "");
+  let filePath = normalize(join(WEB_DIST, rel));
+  if (!filePath.startsWith(WEB_DIST)) return false; // traversal attempt
+
+  let stat = existsSync(filePath) ? statSync(filePath) : null;
+  if (!stat || stat.isDirectory()) {
+    // Directory or unknown path → SPA entry point (client routing).
+    filePath = join(WEB_DIST, "index.html");
+    stat = existsSync(filePath) ? statSync(filePath) : null;
+    if (!stat) return false;
+  }
+
+  const ext = extname(filePath).toLowerCase();
+  const type = MIME[ext] || "application/octet-stream";
+  // Content-built asset filenames are hashed, so they can cache hard; index.html
+  // must not, so a new deploy is picked up immediately.
+  const cache = ext === ".html" ? "no-cache" : "public, max-age=31536000, immutable";
+  res.writeHead(200, { "content-type": type, "cache-control": cache });
+  if (req.method === "HEAD") return res.end(), true;
+  res.end(readFileSync(filePath));
+  return true;
 }
 
 server.listen(PORT, () => {

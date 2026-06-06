@@ -1,0 +1,13 @@
+# Azure Developer CLI (azd) config for Gloss.
+# One container on Azure Container Apps: the Node server serves the SPA + API.
+name: gloss
+metadata:
+  template: gloss@0.1.0
+services:
+  web:
+    project: .
+    language: js
+    host: containerapp
+    docker:
+      path: ./Dockerfile
+      context: .
