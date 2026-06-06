@@ -7,6 +7,7 @@
 
 import React from "react";
 import { avatarFor } from "../util/avatar.js";
+import Logo from "./Logo.jsx";
 import { api } from "../api.js";
 
 export default function TopBar({
@@ -32,7 +33,7 @@ export default function TopBar({
   return (
     <header className="topbar">
       <div className="brand">
-        <span className="glyph">¶</span> Gloss
+        <Logo size={26} /> Gloss
       </div>
 
       {manyRepos ? (

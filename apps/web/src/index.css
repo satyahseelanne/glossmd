@@ -59,10 +59,8 @@ body {
   display: flex; align-items: center; gap: 10px;
   font-family: "Fraunces", serif; font-weight: 600; font-size: 19px; letter-spacing: -.01em;
 }
-.brand .glyph {
-  width: 26px; height: 26px; border-radius: 7px;
-  background: linear-gradient(150deg, var(--ochre), #8a5d22);
-  display: grid; place-items: center; color: #f7f3ea; font-size: 15px;
+.brand .gloss-logo {
+  display: block; border-radius: 7px;
   box-shadow: 0 2px 6px rgba(138, 93, 34, 0.4);
 }
 .repo-pill {
@@ -131,11 +129,7 @@ body {
   display: inline-flex; align-items: center; gap: 10px;
   font-family: "Fraunces", serif; font-weight: 600; font-size: 26px; margin-bottom: 18px;
 }
-.signin-brand .glyph {
-  width: 32px; height: 32px; border-radius: 8px;
-  background: linear-gradient(150deg, var(--ochre), #8a5d22);
-  display: grid; place-items: center; color: #f7f3ea; font-size: 19px;
-}
+.signin-brand .gloss-logo { display: block; box-shadow: 0 4px 12px rgba(138, 93, 34, 0.35); }
 .signin-sub {
   font-family: "Newsreader", serif; font-size: 16px; color: var(--ink-soft);
   margin-bottom: 22px; line-height: 1.5;

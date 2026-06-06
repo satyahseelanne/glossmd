@@ -5,13 +5,14 @@
 // an HttpOnly session cookie and redirects back. The token never reaches here.
 
 import React from "react";
+import Logo from "./Logo.jsx";
 
 export default function SignIn() {
   return (
     <div className="signin">
       <div className="signin-card">
         <div className="signin-brand">
-          <span className="glyph">¶</span> Gloss
+          <Logo size={34} rounded={9} /> Gloss
         </div>
         <p className="signin-sub">
           Sign in to review markdown in your repositories — comments commit as you.
