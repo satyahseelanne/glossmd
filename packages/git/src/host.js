@@ -95,6 +95,11 @@ export class MemoryHost {
     if (!head) return {};
     return (await this.getCommit(head)).files;
   }
+
+  /** Every file path on a branch — mirrors GitHubHost.listPaths for the server. */
+  async listPaths(branch) {
+    return Object.keys(await this.snapshot(branch));
+  }
 }
 
 /**

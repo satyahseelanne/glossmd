@@ -109,10 +109,12 @@ export class GitHubHost {
   }
 
   // Read path (Contents API). Good enough for v1; large dirs should use the Git
-  // Trees API with recursive=1 instead.
-  async listDir(dir) {
+  // Trees API with recursive=1 instead. `ref` pins reads to a branch/sha so the
+  // read path matches whichever branch the reviewer is on.
+  async listDir(dir, ref) {
+    const q = ref ? `?ref=${encodeURIComponent(ref)}` : "";
     try {
-      const items = await this._api(`${this.base()}/contents/${dir}`);
+      const items = await this._api(`${this.base()}/contents/${encodeURI(dir)}${q}`);
       return Array.isArray(items) ? items.map((i) => i.path) : [];
     } catch (e) {
       if (e.status === 404) return [];
@@ -120,13 +122,40 @@ export class GitHubHost {
     }
   }
 
-  async readFile(path) {
+  async readFile(path, ref) {
+    const q = ref ? `?ref=${encodeURIComponent(ref)}` : "";
     try {
-      const item = await this._api(`${this.base()}/contents/${path}`);
+      const item = await this._api(`${this.base()}/contents/${encodeURI(path)}${q}`);
       return Buffer.from(item.content, "base64").toString("utf-8");
     } catch (e) {
       if (e.status === 404) return null;
       throw e;
     }
+  }
+
+  /**
+   * Bind this host to a branch as a ReadHost ({listDir, readFile}) for the
+   * shared read path in @gloss/git's readReviewFiles — the same shape the
+   * MemoryHost's asReadHost() produces, so both backends drive one code path.
+   */
+  asReadHost(branch) {
+    return {
+      listDir: (dir) => this.listDir(dir, branch),
+      readFile: (path) => this.readFile(path, branch),
+    };
+  }
+
+  /**
+   * Every blob path on a branch, via the Git Trees API (recursive). Used by the
+   * server's file browser. Cheaper than walking the Contents API per directory.
+   */
+  async listPaths(branch) {
+    const head = await this.getRef(branch);
+    if (!head) return [];
+    const commit = await this._api(`${this.base()}/git/commits/${head}`);
+    const tree = await this._api(
+      `${this.base()}/git/trees/${commit.tree.sha}?recursive=1`,
+    );
+    return (tree.tree ?? []).filter((t) => t.type === "blob").map((t) => t.path);
   }
 }

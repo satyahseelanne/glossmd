@@ -10,6 +10,7 @@ export default defineConfig({
       "/file": "http://localhost:8787",
       "/reviews": "http://localhost:8787",
       "/auth": "http://localhost:8787",
+      "/repo": "http://localhost:8787",
     },
   },
 });

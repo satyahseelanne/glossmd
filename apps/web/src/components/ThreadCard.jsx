@@ -56,7 +56,7 @@ export default function ThreadCard({
       {orphaned && <div className="orphaned-tag">⚠ ORPHANED</div>}
       <div className="quote">
         <span className="qn">
-          ¶ ANCHOR {resolved ? "✓" : `#${index + 1}`}
+          {resolved ? "✓ RESOLVED" : `NOTE ${index + 1}`}
         </span>
         {thread.anchor?.quote ?? <i>(no quote)</i>}
       </div>

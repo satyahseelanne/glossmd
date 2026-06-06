@@ -9,6 +9,8 @@ async function get(path) {
 }
 
 export const api = {
+  repo: () => get(`/repo`),
+
   tree: (branch = "main") => get(`/tree?branch=${encodeURIComponent(branch)}`),
 
   file: (path, branch = "main") =>

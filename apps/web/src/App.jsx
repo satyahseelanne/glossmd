@@ -30,9 +30,9 @@ import ErrorBoundary from "./components/ErrorBoundary.jsx";
 
 const ME = { id: "u_you", name: "You" };
 const BRANCH = "main";
-const REPO = "acme/platform-docs"; // cosmetic; backend doesn't use this in dev
 
 export default function App() {
+  const [repoInfo, setRepoInfo] = useState({ slug: "…", branch: BRANCH });
   const [tree, setTree] = useState([]);
   const [docPath, setDocPath] = useState(null);
   const [file, setFile] = useState(null);            // { content, commit }
@@ -44,8 +44,9 @@ export default function App() {
   const [orphanIds, setOrphanIds] = useState([]);    // threads the renderer couldn't locate
   const [toast, setToast] = useState(null);
 
-  // --- bootstrap: file tree, then default doc ---
+  // --- bootstrap: repo identity, file tree, then default doc ---
   useEffect(() => {
+    api.repo().then(setRepoInfo).catch(console.error);
     api.tree(BRANCH).then((t) => {
       const mds = (t.paths ?? []).filter((p) => p.endsWith(".md"));
       setTree(mds);
@@ -175,7 +176,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <TopBar branch={BRANCH} repo={REPO} me={ME} knownActors={knownActors} />
+      <TopBar branch={repoInfo.branch ?? BRANCH} repo={repoInfo.slug} me={ME} knownActors={knownActors} />
 
       <ErrorBoundary label="file tree">
         <Tree

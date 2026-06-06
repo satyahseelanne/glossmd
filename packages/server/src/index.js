@@ -20,9 +20,10 @@ import http from "node:http";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, relative, sep } from "node:path";
-import { MemoryHost, asReadHost } from "@gloss/git";
+import { MemoryHost, GitHubHost, asReadHost } from "@gloss/git";
 import { commitAction } from "@gloss/git";
 import { readReviewFiles } from "@gloss/git";
+import { createBranchQueue } from "./queue.js";
 
 const DEV = process.argv.includes("--dev");
 const PORT = process.env.PORT || 8787;
@@ -31,8 +32,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // --- host wiring ----------------------------------------------------------
 // In dev: one in-memory host seeded with the example repo, walked recursively
 // so the file tree is meaningful and any pre-existing .gloss/ log is loaded
-// alongside the docs. In prod: construct a GitHubHost per request from the
-// reviewer's stored OAuth token (omitted here).
+// alongside the docs. In prod: a single GitHubHost built from a Personal Access
+// Token + owner/repo in the environment (Phase 2's single-user mode; the OAuth
+// flow that mints a per-reviewer token slots in here later).
 function devHost() {
   const host = new MemoryHost();
   const repoDir = join(__dirname, "../../../examples/repo");
@@ -51,6 +53,27 @@ function devHost() {
   return host;
 }
 
+// Build a live GitHubHost from the environment. Throws (loudly, at boot) if the
+// required configuration is missing — better than 500ing on the first request.
+function prodHost() {
+  const token = process.env.GITHUB_TOKEN;
+  const owner = process.env.GLOSS_OWNER;
+  const repo = process.env.GLOSS_REPO;
+  const missing = [
+    !token && "GITHUB_TOKEN",
+    !owner && "GLOSS_OWNER",
+    !repo && "GLOSS_REPO",
+  ].filter(Boolean);
+  if (missing.length) {
+    throw new Error(
+      `@gloss/server: missing env ${missing.join(", ")}. ` +
+        `Set them (or run with --dev) — e.g. GITHUB_TOKEN=ghp_… GLOSS_OWNER=acme GLOSS_REPO=docs.`,
+    );
+  }
+  console.log(`prodHost: GitHubHost → ${owner}/${repo}`);
+  return new GitHubHost({ owner, repo, token });
+}
+
 // Recursively yield every file path under root (skip nothing — .gloss/ included).
 function* walk(root) {
   for (const name of readdirSync(root)) {
@@ -60,8 +83,33 @@ function* walk(root) {
     else if (st.isFile()) yield full;
   }
 }
-const host = DEV ? devHost() : null;
+const host = DEV ? devHost() : prodHost();
 const DEV_USER = { id: "u_dev", name: "Dev User", email: "dev@example.com" };
+
+// Identity of the repo this server is bound to — surfaced to the web app so the
+// topbar shows the real repo/branch instead of a placeholder. In dev there is no
+// remote, so we label it accordingly.
+const REPO_INFO = DEV
+  ? { owner: null, repo: "examples/repo", slug: "examples/repo", branch: "main", mode: "dev" }
+  : {
+      owner: process.env.GLOSS_OWNER,
+      repo: process.env.GLOSS_REPO,
+      slug: `${process.env.GLOSS_OWNER}/${process.env.GLOSS_REPO}`,
+      branch: process.env.GLOSS_BRANCH || "main",
+      mode: "github",
+    };
+
+// Serialize writes per branch so our own concurrent commits don't all read the
+// same head, collide on updateRef, and thrash the rebase-retry loop.
+const writes = createBranchQueue();
+
+// One read-path shape for both backends: MemoryHost via the standalone
+// asReadHost(host, branch); GitHubHost via its own asReadHost(branch) method.
+function readHostFor(branch) {
+  return typeof host.asReadHost === "function"
+    ? host.asReadHost(branch)
+    : asReadHost(host, branch);
+}
 
 // --- tiny router -----------------------------------------------------------
 const json = (res, code, body) => {
@@ -84,12 +132,16 @@ const server = http.createServer(async (req, res) => {
       return json(res, DEV ? 200 : 501, DEV ? { ok: true, user: DEV_USER } : { error: "OAuth not configured" });
     }
 
+    if (req.method === "GET" && url.pathname === "/repo") {
+      // Tells the web app which repo/branch it's actually pointed at.
+      return json(res, 200, REPO_INFO);
+    }
+
     if (req.method === "GET" && url.pathname === "/tree") {
       const branch = q.get("branch") || "main";
-      const files = await host.snapshot(branch);
-      // Only surface doc-like files; any path with a `.gloss/` segment is
-      // review metadata and lives behind /reviews instead.
-      const paths = Object.keys(files).filter(
+      const paths = (await host.listPaths(branch)).filter(
+        // Only surface doc-like files; any path with a `.gloss/` segment is
+        // review metadata and lives behind /reviews instead.
         (p) => p.endsWith(".md") && !p.split("/").includes(".gloss"),
       );
       return json(res, 200, { branch, paths });
@@ -99,17 +151,17 @@ const server = http.createServer(async (req, res) => {
       const branch = q.get("branch") || "main";
       const path = q.get("path");
       if (!path) return json(res, 400, { error: "path required" });
-      const files = await host.snapshot(branch);
-      if (!(path in files)) return json(res, 404, { error: "not found" });
+      const content = await readHostFor(branch).readFile(path);
+      if (content == null) return json(res, 404, { error: "not found" });
       const commit = await host.getRef(branch); // the SHA the client stamps anchors against
-      return json(res, 200, { path, branch, commit, content: files[path] });
+      return json(res, 200, { path, branch, commit, content });
     }
 
     if (req.method === "GET" && url.pathname === "/reviews") {
       const branch = q.get("branch") || "main";
       const path = q.get("path");
       if (!path) return json(res, 400, { error: "path required" });
-      const { checkpoint, logTail } = await readReviewFiles(asReadHost(host, branch), path);
+      const { checkpoint, logTail } = await readReviewFiles(readHostFor(branch), path);
       return json(res, 200, { path, branch, checkpoint, logTail });
     }
 
@@ -117,9 +169,11 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req);
       const { branch = "main", path, action } = JSON.parse(body || "{}");
       if (!path || !action) return json(res, 400, { error: "path and action required" });
-      // NOTE: a per-branch lock/queue belongs here so our own concurrent requests
-      // don't all collide on the same head and burn host rate limit.
-      const result = await commitAction(host, { branch, docPath: path, action });
+      // Per-branch queue: each write sees the previous one's new head, so the
+      // commit loop's optimistic CAS lands in one attempt in the common case.
+      const result = await writes.run(branch, () =>
+        commitAction(host, { branch, docPath: path, action }),
+      );
       return json(res, 200, { ok: true, ...result });
     }
 

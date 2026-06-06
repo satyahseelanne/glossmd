@@ -90,18 +90,20 @@ same protocol against local git with no backend at all.
 
 ## 6. Repository layout
 
-Comments for a document live alongside it, namespaced by the document's path, so
-they never pollute the document's own diff:
+Comments for a document live alongside it — a `.gloss/` directory in the *same
+folder* as the document, namespaced by the document's filename — so they never
+pollute the document's own diff and travel with the folder when it moves:
 
 ```
-design.md
-.gloss/design.md/
-  _log/                          # only un-checkpointed actions
-    01JA7K…create_thread.json
-    01JA7M…add_comment.json
-    01JA8P…resolve_thread.json
-  _checkpoints/
-    01JB8P…checkpoint.json        # ULID-named; loader takes the max id
+design/
+  design.md
+  .gloss/design.md/
+    _log/                          # only un-checkpointed actions
+      01JA7K…create_thread.json
+      01JA7M…add_comment.json
+      01JA8P…resolve_thread.json
+    _checkpoints/
+      01JB8P…checkpoint.json        # ULID-named; loader takes the max id
 ```
 
 Every file in `_log/` and `_checkpoints/` is named by a **ULID** — a
@@ -240,7 +242,7 @@ flow is a silent **pull-rebase-push retry loop**, never a conflict prompt:
 
 ```
 1. Read current branch head SHA.
-2. Create the action file under .gloss/<doc>/_log/<ulid>.json.
+2. Create the action file under <dir>/.gloss/<doc>/_log/<ulid>.json.
 3. Build a tree on top of head; build a commit pointing at head.
 4. Update the branch ref — only if it still points at the SHA from step 1.
 5. If the ref moved (someone committed first): refetch head, retry from 2.
