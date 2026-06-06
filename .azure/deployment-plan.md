@@ -28,7 +28,9 @@ Browser ──HTTPS──► Azure Container App (single replica)
 - **Compute:** Azure Container Apps, 1 container.
 - **Scale:** min 1 / max 1 replica for v1 (sessions are in-memory — see Risks).
 - **Registry:** Azure Container Registry (built + pushed by `azd`).
-- **Secrets:** GitHub OAuth client id/secret as Container App secrets.
+- **Secrets:** GitHub OAuth client secret in **Azure Key Vault**; the Container App
+  references it via a Key Vault secret reference, read at runtime through the
+  app's user-assigned managed identity (Key Vault Secrets User).
 - **Ingress:** external, HTTPS, target port 8787.
 - **No database, no storage** — Gloss is stateless; all data lives in the user's git repo.
 
@@ -38,7 +40,7 @@ Browser ──HTTPS──► Azure Container App (single replica)
 |---|---|
 | Node server + static SPA (one image) | Azure Container Apps |
 | Container image | Azure Container Registry |
-| OAuth secrets | Container App secrets (Key Vault optional later) |
+| OAuth secret | Azure Key Vault (ACA Key Vault reference via managed identity) |
 | Logs/metrics | Log Analytics + Container Apps Environment |
 
 ## 4. Required code/config changes
@@ -88,8 +90,10 @@ The ACA public FQDN isn't known until the first deploy. So:
   restart. Follow-up: move sessions to Azure Cache for Redis to scale out.
 - OAuth callback must match `GLOSS_BASE_URL` exactly or sign-in fails (handled by
   the two-step above).
-- Secrets (`GLOSS_OAUTH_CLIENT_SECRET`) provided at deploy time as ACA secrets;
-  never committed.
+- Secrets (`GLOSS_OAUTH_CLIENT_SECRET`) stored in **Azure Key Vault**; the app
+  reads it via an ACA Key Vault reference using its managed identity. The value
+  is set once via `azd env set` (user's terminal), written to KV by Bicep, and
+  never committed. Rotate later directly in KV with no redeploy.
 
 ## 8. Validation proof
 

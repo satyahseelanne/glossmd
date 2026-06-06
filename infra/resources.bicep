@@ -31,6 +31,30 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   }
 }
 
+// --- key vault holding the OAuth client secret ---
+// RBAC-authorized; the container app's managed identity reads the secret at
+// runtime, so the value never lives in the container config or the image.
+resource vault 'Microsoft.KeyVault/vaults@2023-07-01' = {
+  name: 'kv-${resourceToken}'
+  location: location
+  tags: tags
+  properties: {
+    tenantId: subscription().tenantId
+    sku: { family: 'A', name: 'standard' }
+    enableRbacAuthorization: true
+    enableSoftDelete: true
+    softDeleteRetentionInDays: 7
+  }
+}
+
+resource oauthSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: vault
+  name: 'gloss-oauth-client-secret'
+  properties: {
+    value: glossOauthClientSecret
+  }
+}
+
 // --- container registry ---
 resource registry 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' = {
   name: 'acr${resourceToken}'
@@ -61,6 +85,19 @@ resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
+// Key Vault Secrets User — lets the identity read the OAuth secret at runtime.
+var kvSecretsUserRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
+
+resource kvSecretsUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(vault.id, identity.id, kvSecretsUserRoleId)
+  scope: vault
+  properties: {
+    roleDefinitionId: kvSecretsUserRoleId
+    principalId: identity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // --- container apps environment ---
 resource containerEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
   name: 'cae-${resourceToken}'
@@ -82,6 +119,11 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
   name: 'ca-web-${resourceToken}'
   location: location
   tags: union(tags, { 'azd-service-name': 'web' })
+  // Depend on the role assignment so RBAC has propagated before the app reads the
+  // Key Vault secret (the secret URI reference already orders the secret itself).
+  dependsOn: [
+    kvSecretsUser
+  ]
   identity: {
     type: 'UserAssigned'
     userAssignedIdentities: { '${identity.id}': {} }
@@ -104,8 +146,11 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
       ]
       secrets: [
         {
+          // Key Vault-backed: the value lives in KV, pulled at runtime via the
+          // user-assigned identity. Unversioned URI so rotation needs no redeploy.
           name: 'gloss-oauth-client-secret'
-          value: glossOauthClientSecret
+          keyVaultUrl: oauthSecret.properties.secretUri
+          identity: identity.id
         }
       ]
     }
@@ -138,4 +183,5 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
 
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = registry.properties.loginServer
 output AZURE_CONTAINER_REGISTRY_NAME string = registry.name
+output AZURE_KEY_VAULT_NAME string = vault.name
 output SERVICE_WEB_URI string = 'https://${web.properties.configuration.ingress.fqdn}'
