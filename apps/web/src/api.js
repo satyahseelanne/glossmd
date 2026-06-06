@@ -11,6 +11,11 @@ async function get(path) {
 export const api = {
   repo: () => get(`/repo`),
 
+  me: () => get(`/auth/me`),
+
+  logout: () =>
+    fetch(`/auth/logout`, { method: "POST" }).then((r) => r.json()),
+
   tree: (branch = "main") => get(`/tree?branch=${encodeURIComponent(branch)}`),
 
   file: (path, branch = "main") =>

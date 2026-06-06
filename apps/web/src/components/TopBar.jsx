@@ -6,9 +6,14 @@
 
 import React from "react";
 import { avatarFor } from "../util/avatar.js";
+import { api } from "../api.js";
 
-export default function TopBar({ branch, repo, me, knownActors }) {
+export default function TopBar({ branch, repo, me, authMode, knownActors }) {
   const actors = Array.from(new Map(knownActors.map((a) => [a.id, a])).values()).slice(0, 4);
+  async function signOut() {
+    await api.logout();
+    window.location.reload();
+  }
   return (
     <header className="topbar">
       <div className="brand">
@@ -38,6 +43,11 @@ export default function TopBar({ branch, repo, me, knownActors }) {
           </div>
         )}
       </div>
+      {authMode === "oauth" && me && (
+        <button className="signout" onClick={signOut} title={`Signed in as ${me.login ?? me.name}`}>
+          {me.login ?? me.name} · Sign out
+        </button>
+      )}
     </header>
   );
 }

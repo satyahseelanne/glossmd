@@ -27,11 +27,14 @@ import DocumentPane from "./components/DocumentPane.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import Toast from "./components/Toast.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
+import SignIn from "./components/SignIn.jsx";
 
-const ME = { id: "u_you", name: "You" };
 const BRANCH = "main";
 
 export default function App() {
+  const [me, setMe] = useState(null);                // logged-in reviewer
+  const [authMode, setAuthMode] = useState(null);    // "dev" | "pat" | "oauth"
+  const [authReady, setAuthReady] = useState(false);
   const [repoInfo, setRepoInfo] = useState({ slug: "…", branch: BRANCH });
   const [tree, setTree] = useState([]);
   const [docPath, setDocPath] = useState(null);
@@ -44,16 +47,26 @@ export default function App() {
   const [orphanIds, setOrphanIds] = useState([]);    // threads the renderer couldn't locate
   const [toast, setToast] = useState(null);
 
-  // --- bootstrap: repo identity, file tree, then default doc ---
+  // --- bootstrap: who am I? then repo identity + tree (once authenticated) ---
   useEffect(() => {
     api.repo().then(setRepoInfo).catch(console.error);
+    api.me().then((r) => {
+      setMe(r.user ?? null);
+      setAuthMode(r.mode ?? null);
+      setAuthReady(true);
+    }).catch(() => setAuthReady(true));
+  }, []);
+
+  // Load the tree only once we have a reviewer (oauth) or are in dev/pat.
+  useEffect(() => {
+    if (!authReady || !me) return;
     api.tree(BRANCH).then((t) => {
       const mds = (t.paths ?? []).filter((p) => p.endsWith(".md"));
       setTree(mds);
       if (mds.length && !docPath) setDocPath(mds.find((p) => /design\.md$/.test(p)) ?? mds[0]);
     }).catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authReady, me]);
 
   // --- load the selected doc + its reviews whenever the path changes ---
   const loadDoc = useCallback(async (path) => {
@@ -130,7 +143,7 @@ export default function App() {
   function postCreateThread(body) {
     if (!draft || !body.trim()) return;
     const action = createThread({
-      id: ulid(), actor: ME, ts: now(),
+      id: ulid(), actor: me, ts: now(),
       anchor: draft.anchor, body: body.trim(),
     });
     setDraft(null);
@@ -139,31 +152,31 @@ export default function App() {
   }
   function postReply(threadId, body) {
     return postAction(
-      addComment({ id: ulid(), actor: ME, ts: now(), thread_id: threadId, body }),
+      addComment({ id: ulid(), actor: me, ts: now(), thread_id: threadId, body }),
       "Reply committed",
     );
   }
   function postEdit(commentId, body) {
     return postAction(
-      editComment({ id: ulid(), actor: ME, ts: now(), target: commentId, body }),
+      editComment({ id: ulid(), actor: me, ts: now(), target: commentId, body }),
       "Comment edited",
     );
   }
   function postDelete(commentId) {
     return postAction(
-      deleteComment({ id: ulid(), actor: ME, ts: now(), target: commentId }),
+      deleteComment({ id: ulid(), actor: me, ts: now(), target: commentId }),
       "Comment deleted",
     );
   }
   function postResolve(threadId) {
     return postAction(
-      resolveThread({ id: ulid(), actor: ME, ts: now(), thread_id: threadId }),
+      resolveThread({ id: ulid(), actor: me, ts: now(), thread_id: threadId }),
       "Thread resolved",
     );
   }
   function postReopen(threadId) {
     return postAction(
-      reopenThread({ id: ulid(), actor: ME, ts: now(), thread_id: threadId }),
+      reopenThread({ id: ulid(), actor: me, ts: now(), thread_id: threadId }),
       "Thread reopened",
     );
   }
@@ -174,9 +187,14 @@ export default function App() {
     setFilter("all");
   }, []);
 
+  // Sign-in gate: in OAuth mode, block the app until the reviewer authenticates.
+  if (authReady && authMode === "oauth" && !me) {
+    return <SignIn repo={repoInfo.slug} />;
+  }
+
   return (
     <div className="app">
-      <TopBar branch={repoInfo.branch ?? BRANCH} repo={repoInfo.slug} me={ME} knownActors={knownActors} />
+      <TopBar branch={repoInfo.branch ?? BRANCH} repo={repoInfo.slug} me={me} authMode={authMode} knownActors={knownActors} />
 
       <ErrorBoundary label="file tree">
         <Tree
@@ -206,7 +224,7 @@ export default function App() {
         draft={draft}
         filter={filter}
         activeThread={activeThread}
-        me={ME}
+        me={me}
         onFilterChange={setFilter}
         onActivate={setActiveThread}
         onStartReply={postReply}
