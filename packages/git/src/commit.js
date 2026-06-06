@@ -48,12 +48,15 @@ export async function commitAction(host, { branch, docPath, action, maxRetries =
  * @param {string} args.docPath
  * @param {object} args.checkpoint        - checkpoint object from @gloss/core
  * @param {string[]} args.foldedLogPaths  - repo paths of action files to delete
+ * @param {string[]} [args.removePaths]   - extra paths to delete in the same
+ *   commit (e.g. the superseded checkpoint, for atomic GC)
  * @param {number} [args.maxRetries=8]
  */
-export async function commitCheckpoint(host, { branch, docPath, checkpoint, foldedLogPaths, maxRetries = 8 }) {
+export async function commitCheckpoint(host, { branch, docPath, checkpoint, foldedLogPaths, removePaths = [], maxRetries = 8 }) {
   const ops = [
     { op: "add", path: checkpointPath(docPath, checkpoint.id), content: JSON.stringify(checkpoint, null, 2) },
     ...foldedLogPaths.map((p) => ({ op: "remove", path: p })),
+    ...removePaths.map((p) => ({ op: "remove", path: p })),
   ];
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const head = await host.getRef(branch);

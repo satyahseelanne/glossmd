@@ -12,6 +12,7 @@
 //   GET  /file?path&branch      → markdown + its resolved commit SHA
 //   GET  /reviews?path&branch   → latest checkpoint + log tail (client folds)
 //   POST /reviews/actions       → commit one action (pull-rebase-push loop)
+//   POST /reviews/compact       → fold log into a checkpoint, GC the old one
 //
 // Run offline: `node src/index.js --dev` uses an in-memory host seeded from the
 // example repo, so the surface is exercisable without a token or network.
@@ -21,8 +22,10 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, relative, sep } from "node:path";
 import { MemoryHost, GitHubHost, asReadHost } from "@gloss/git";
-import { commitAction } from "@gloss/git";
+import { commitAction, commitCheckpoint } from "@gloss/git";
 import { readReviewFiles } from "@gloss/git";
+import { paths } from "@gloss/git";
+import { ulid, compact } from "@gloss/core";
 import { createBranchQueue } from "./queue.js";
 
 const DEV = process.argv.includes("--dev");
@@ -175,6 +178,29 @@ const server = http.createServer(async (req, res) => {
         commitAction(host, { branch, docPath: path, action }),
       );
       return json(res, 200, { ok: true, ...result });
+    }
+
+    if (req.method === "POST" && url.pathname === "/reviews/compact") {
+      const body = await readBody(req);
+      const { branch = "main", path } = JSON.parse(body || "{}");
+      if (!path) return json(res, 400, { error: "path required" });
+      // Fold the un-folded log into a fresh checkpoint and delete the folded
+      // action files (and the superseded checkpoint) in one atomic commit.
+      // Runs on the per-branch queue so it serializes with comment writes.
+      const out = await writes.run(branch, async () => {
+        const read = readHostFor(branch);
+        const { checkpoint: prior, logTail } = await readReviewFiles(read, path);
+        if (logTail.length === 0) return { compacted: 0, note: "nothing to compact" };
+        const { checkpoint, folded } = compact(ulid, new Date().toISOString(), logTail, prior);
+        const foldedLogPaths = folded.map((a) => paths.logPath(path, a.id));
+        // GC: delete the checkpoint this one supersedes, atomically.
+        const removePaths = prior ? [paths.checkpointPath(path, prior.id)] : [];
+        const commit = await commitCheckpoint(host, {
+          branch, docPath: path, checkpoint, foldedLogPaths, removePaths,
+        });
+        return { compacted: folded.length, checkpointId: checkpoint.id, superseded: prior?.id ?? null, ...commit };
+      });
+      return json(res, 200, { ok: true, ...out });
     }
 
     if (req.method === "OPTIONS") {

@@ -49,6 +49,36 @@ function findComment(state, targetId) {
 }
 
 /**
+ * Structural validation. The protocol invites third-party writers, so a foreign
+ * or corrupt record must never crash the fold — it's routed to `orphans` with a
+ * reason and ignored. Returns null if the action is well-formed, else a reason.
+ */
+function malformedReason(a) {
+  if (a === null || typeof a !== "object" || Array.isArray(a)) return "not_an_object";
+  if (typeof a.type !== "string") return "missing_type";
+  if (typeof a.id !== "string") return "missing_id";
+  if (typeof a.ts !== "string") return "missing_ts";
+  if (!a.actor || typeof a.actor.id !== "string") return "missing_actor";
+  switch (a.type) {
+    case ActionType.CREATE_THREAD:
+      if (typeof a.thread_id !== "string") return "missing_thread_id";
+      if (!a.anchor || typeof a.anchor.quote !== "string") return "missing_anchor";
+      return null;
+    case ActionType.ADD_COMMENT:
+    case ActionType.RESOLVE_THREAD:
+    case ActionType.REOPEN_THREAD:
+      if (typeof a.thread_id !== "string") return "missing_thread_id";
+      return null;
+    case ActionType.EDIT_COMMENT:
+    case ActionType.DELETE_COMMENT:
+      if (typeof a.target !== "string") return "missing_target";
+      return null;
+    default:
+      return "unknown_type";
+  }
+}
+
+/**
  * @param {object[]} actions - any subset of the log (need not be pre-sorted)
  * @param {object} [initialState] - e.g. a checkpoint's materialized state; the
  *   log tail is folded on top of it. Defaults to empty.
@@ -66,6 +96,13 @@ export function reduce(actions, initialState) {
   const adds = [];
   const mutations = [];
   for (const a of actions) {
+    // Gate every record first: anything structurally broken (a foreign tool's
+    // mistake, a corrupt file) goes to orphans instead of crashing the fold.
+    const bad = malformedReason(a);
+    if (bad) {
+      state.orphans.push({ reason: bad, action: a });
+      continue;
+    }
     if (a.type === ActionType.CREATE_THREAD) creates.push(a);
     else if (a.type === ActionType.ADD_COMMENT) adds.push(a);
     else mutations.push(a);

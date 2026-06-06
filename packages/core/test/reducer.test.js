@@ -119,3 +119,31 @@ test("dangling actions are captured as orphans, not crashes", () => {
   assert.equal(s.orphans.length, 1);
   assert.equal(s.orphans[0].reason, "missing_thread");
 });
+
+test("malformed / foreign records are orphaned, never thrown (the UI-blanking bug)", () => {
+  const valid = createThread({ id: "01VALID0000000000000000001", actor: A, ts: "2026-06-05T12:00:00.000Z", anchor, body: "real" });
+  const bad = [
+    null,                                                   // not an object
+    "just a string",                                        // not an object
+    42,                                                     // not an object
+    {},                                                     // missing everything
+    { type: "create_thread" },                              // missing id/ts/actor
+    { id: "x", type: "create_thread", ts: "t", actor: {} }, // actor without id
+    { id: "x", type: "create_thread", ts: "t", actor: A, thread_id: "x" }, // create with no anchor (the crasher)
+    { id: "x", type: "edit_comment", ts: "t", actor: A },   // edit with no target
+    { id: "x", type: "frobnicate", ts: "t", actor: A },     // unknown foreign type
+  ];
+
+  let state;
+  assert.doesNotThrow(() => { state = reduce([valid, ...bad]); });
+
+  // the one good action still materialized
+  assert.equal(Object.keys(state.threads).length, 1);
+  // every bad record landed in orphans with a reason
+  assert.equal(state.orphans.length, bad.length);
+  for (const o of state.orphans) assert.ok(typeof o.reason === "string" && o.reason.length > 0);
+  // a couple of specific reasons we care about
+  assert.ok(state.orphans.some((o) => o.reason === "missing_anchor"));
+  assert.ok(state.orphans.some((o) => o.reason === "unknown_type"));
+  assert.ok(state.orphans.some((o) => o.reason === "not_an_object"));
+});
