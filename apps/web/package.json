@@ -12,6 +12,10 @@
   "dependencies": {
     "@gloss/core": "0.1.0",
     "@gloss/anchor": "0.1.0",
+    "@tiptap/react": "^2.6.6",
+    "@tiptap/pm": "^2.6.6",
+    "@tiptap/starter-kit": "^2.6.6",
+    "tiptap-markdown": "^0.8.10",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "marked": "^12.0.0"

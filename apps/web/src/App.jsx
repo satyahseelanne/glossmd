@@ -230,6 +230,21 @@ export default function App() {
     setFilter("all");
   }, []);
 
+  // Edit mode: commit the markdown itself to the branch, then reload the doc so
+  // anchors re-locate against the new text (orphans fall out naturally). Rethrows
+  // on failure so the doc pane stays in edit mode with the user's buffer intact.
+  const saveDoc = useCallback(async (content) => {
+    if (!docPath) return;
+    try {
+      const res = await api.saveFile(docPath, content, ctx);
+      setToast({ message: "Document saved", action: "edit_doc", id: res.commitSha ?? docPath });
+      await loadDoc(docPath);
+    } catch (err) {
+      setToast({ message: `Save failed: ${err.message}`, action: "edit_doc", id: docPath });
+      throw err;
+    }
+  }, [docPath, ctx, loadDoc]);
+
   // Selecting a thread activates it AND asks the *other* pane to scroll it into
   // view: click an inline anchor → the sidebar card scrolls; click a card → the
   // document anchor scrolls. The `n` nonce makes repeat clicks re-fire the effect.
@@ -281,8 +296,10 @@ export default function App() {
           threads={threads}
           activeThread={activeThread}
           focus={focus}
+          canEdit={!!me}
           onSelectThread={selectFromDoc}
           onStartThread={startThread}
+          onSaveDoc={saveDoc}
           onOrphans={setOrphanIds}
         />
       </ErrorBoundary>

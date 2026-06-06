@@ -28,7 +28,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, relative, sep } from "node:path";
 import { MemoryHost, GitHubHost, asReadHost } from "@gloss/git";
-import { commitAction, commitCheckpoint } from "@gloss/git";
+import { commitAction, commitCheckpoint, commitFile } from "@gloss/git";
 import { readReviewFiles } from "@gloss/git";
 import { paths } from "@gloss/git";
 import { ulid, compact } from "@gloss/core";
@@ -329,6 +329,21 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { path, branch, commit, content });
     }
 
+    // Commit an edit to the document itself. Goes through the same per-branch
+    // write queue as comment actions so our writes serialize; the CAS loop in
+    // commitFile handles a branch that advanced under us.
+    if (req.method === "POST" && url.pathname === "/file") {
+      const body = await readBody(req);
+      const { branch = "main", path, content } = JSON.parse(body || "{}");
+      if (!path || typeof content !== "string") {
+        return json(res, 400, { error: "path and content required" });
+      }
+      const result = await writes.run(branch, () =>
+        commitFile(host, { branch, path, content }),
+      );
+      return json(res, 200, { ok: true, ...result });
+    }
+
     if (req.method === "GET" && url.pathname === "/reviews") {
       const branch = q.get("branch") || "main";
       const path = q.get("path");
@@ -383,6 +398,7 @@ const server = http.createServer(async (req, res) => {
 
     return json(res, 404, { error: "no route" });
   } catch (err) {
+    console.error(`[${req.method} ${url.pathname}]`, err?.stack || err);
     return json(res, 500, { error: String(err.message || err) });
   }
 });

@@ -19,6 +19,7 @@ import {
   highlightRanges,
   setActiveHighlight,
 } from "@gloss/anchor";
+import MarkdownEditor from "./MarkdownEditor.jsx";
 
 export default function DocumentPane({
   docPath,
@@ -26,19 +27,50 @@ export default function DocumentPane({
   threads,
   activeThread,
   focus,
+  canEdit,
   onSelectThread,
   onStartThread,
+  onSaveDoc,
   onOrphans,
 }) {
   const docRef = useRef(null);
   const [floatBtn, setFloatBtn] = useState(null); // { x, y, anchor } | null
+  const [mode, setMode] = useState("read");        // "read" | "edit"
+  const [editContent, setEditContent] = useState(""); // markdown buffer while editing
+  const [saving, setSaving] = useState(false);
 
   const html = useMemo(() => (file ? marked.parse(file.content) : ""), [file]);
+
+  // Leaving a doc (or it reloading) drops back to read mode so we never show a
+  // stale edit buffer against a different file.
+  useEffect(() => {
+    setMode("read");
+    setFloatBtn(null);
+  }, [docPath]);
+
+  function enterEdit() {
+    setEditContent(file?.content ?? "");
+    setFloatBtn(null);
+    window.getSelection()?.removeAllRanges();
+    setMode("edit");
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await onSaveDoc(editContent); // parent commits + reloads the file
+      setMode("read");              // success: the reloaded `file` shows new content
+    } catch {
+      /* stay in edit mode; the parent surfaces the failure as a toast */
+    } finally {
+      setSaving(false);
+    }
+  }
 
   // Decorate inline anchors after every render of the doc html or threads change.
   useEffect(() => {
     const root = docRef.current;
-    if (!root) return;
+    if (!root || mode === "edit") return; // no anchors over the editor surface
 
     const rendered = root.textContent ?? "";
     const ranges = [];
@@ -68,7 +100,7 @@ export default function DocumentPane({
     const cleanup = highlightRanges(root, ranges, (threadId) => onSelectThread(threadId));
     setActiveHighlight(root, activeThread);
     return cleanup;
-  }, [html, threads, onSelectThread, onOrphans]);
+  }, [html, threads, onSelectThread, onOrphans, mode]);
 
   // Cheap restyle when activeThread changes without re-wrapping.
   useEffect(() => {
@@ -85,6 +117,7 @@ export default function DocumentPane({
 
   // Selection → floating "Comment" button.
   function handleMouseUp(e) {
+    if (mode === "edit") return; // editing, not reviewing
     if (e.target?.closest?.(".float-btn")) return;
     // tiny delay so the selection has settled
     setTimeout(() => {
@@ -130,14 +163,37 @@ export default function DocumentPane({
           <span className="commit-tag">
             anchored to <code>{(file?.commit ?? "…").slice(0, 7)}</code>
           </span>
+          {file && canEdit && mode === "read" && (
+            <button className="doc-edit-btn" onClick={enterEdit} title="Edit this document">
+              ✎ Edit
+            </button>
+          )}
+          {mode === "edit" && (
+            <span className="doc-edit-actions">
+              <button
+                className="doc-edit-btn ghost"
+                onClick={() => setMode("read")}
+                disabled={saving}
+              >
+                Cancel
+              </button>
+              <button className="doc-edit-btn primary" onClick={handleSave} disabled={saving}>
+                {saving ? "Saving…" : "Save to branch"}
+              </button>
+            </span>
+          )}
         </div>
       </div>
-      <article
-        ref={docRef}
-        className="doc"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
-      {floatBtn && (
+      {mode === "edit" ? (
+        <MarkdownEditor value={editContent} onChange={setEditContent} />
+      ) : (
+        <article
+          ref={docRef}
+          className="doc"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      )}
+      {floatBtn && mode === "read" && (
         <button
           className="float-btn"
           style={{ left: floatBtn.x, top: floatBtn.y, display: "flex" }}

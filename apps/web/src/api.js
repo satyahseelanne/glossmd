@@ -32,6 +32,17 @@ export const api = {
   file: (path, { owner, repo, branch = "main" } = {}) =>
     get(`/file${qs({ owner, repo, branch, path })}`),
 
+  // Commit an edit to the document content itself (returns the new commit SHA).
+  saveFile: async (path, content, { owner, repo, branch = "main" } = {}) => {
+    const res = await fetch(`/file${qs({ owner, repo })}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ branch, path, content }),
+    });
+    if (!res.ok) throw new Error(`saveFile → ${res.status}`);
+    return res.json();
+  },
+
   reviews: (path, { owner, repo, branch = "main" } = {}) =>
     get(`/reviews${qs({ owner, repo, branch, path })}`),
 

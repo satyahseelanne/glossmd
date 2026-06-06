@@ -39,6 +39,34 @@ export async function commitAction(host, { branch, docPath, action, maxRetries =
 }
 
 /**
+ * Commit document content itself (the reviewed .md), not review metadata. Same
+ * pull-rebase-push CAS loop as commitAction — but unlike action files (uniquely
+ * ULID-named, never colliding), the doc is a single shared path, so a concurrent
+ * edit to the *same* file does race: updateRef rejects the non-fast-forward and
+ * we retry on the new head. The retry re-commits the editor's content as-is,
+ * so a true simultaneous edit is last-writer-wins on this path. The branch queue
+ * in the server keeps our own writes from racing each other.
+ *
+ * @param {import("./host.js").HostAdapter} host
+ * @param {object} args
+ * @param {string} args.branch
+ * @param {string} args.path     - repo path of the document, e.g. "design/design.md"
+ * @param {string} args.content  - the full new file contents
+ * @param {number} [args.maxRetries=8]
+ * @returns {Promise<{commitSha:string, attempts:number}>}
+ */
+export async function commitFile(host, { branch, path, content, maxRetries = 8 }) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const head = await host.getRef(branch);
+    const newSha = await host.createCommit(head, [{ op: "add", path, content }]);
+    const res = await host.updateRef(branch, head, newSha);
+    if (res.ok) return { commitSha: newSha, attempts: attempt };
+    await sleep(backoff(attempt));
+  }
+  throw new Error(`commitFile: exceeded ${maxRetries} retries on ${branch} (contention)`);
+}
+
+/**
  * Commit a compaction: write a new checkpoint and remove the folded log files in
  * one commit, so the working tree's _log/ only ever holds un-folded actions.
  *
