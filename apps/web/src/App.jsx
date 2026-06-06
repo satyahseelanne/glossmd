@@ -48,6 +48,7 @@ export default function App() {
   const [reduced, setReduced] = useState(null);      // full review state
   const [threadCounts, setThreadCounts] = useState({}); // path → open thread count
   const [activeThread, setActiveThread] = useState(null);
+  const [focus, setFocus] = useState(null);          // { pane, id, n } scroll signal
   const [draft, setDraft] = useState(null);          // { anchor } for the composer
   const [filter, setFilter] = useState("all");
   const [orphanIds, setOrphanIds] = useState([]);    // threads the renderer couldn't locate
@@ -229,6 +230,18 @@ export default function App() {
     setFilter("all");
   }, []);
 
+  // Selecting a thread activates it AND asks the *other* pane to scroll it into
+  // view: click an inline anchor → the sidebar card scrolls; click a card → the
+  // document anchor scrolls. The `n` nonce makes repeat clicks re-fire the effect.
+  const selectFromDoc = useCallback((id) => {
+    setActiveThread(id);
+    setFocus({ pane: "sidebar", id, n: Date.now() });
+  }, []);
+  const selectFromSidebar = useCallback((id) => {
+    setActiveThread(id);
+    setFocus({ pane: "doc", id, n: Date.now() });
+  }, []);
+
   // Sign-in gate: in OAuth mode, block the app until the reviewer authenticates.
   if (authReady && authMode === "oauth" && !me) {
     return <SignIn repo={repoInfo.slug} />;
@@ -267,7 +280,8 @@ export default function App() {
           file={file}
           threads={threads}
           activeThread={activeThread}
-          onSelectThread={setActiveThread}
+          focus={focus}
+          onSelectThread={selectFromDoc}
           onStartThread={startThread}
           onOrphans={setOrphanIds}
         />
@@ -279,9 +293,10 @@ export default function App() {
         draft={draft}
         filter={filter}
         activeThread={activeThread}
+        focus={focus}
         me={me}
         onFilterChange={setFilter}
-        onActivate={setActiveThread}
+        onActivate={selectFromSidebar}
         onStartReply={postReply}
         onEdit={postEdit}
         onDelete={postDelete}

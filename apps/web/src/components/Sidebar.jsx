@@ -4,7 +4,7 @@
 // wrapped in an ErrorBoundary so one bad action card can never blank the
 // whole sidebar (the bug we hit live this session).
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import ThreadCard from "./ThreadCard.jsx";
 import Composer from "./Composer.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
@@ -21,6 +21,7 @@ export default function Sidebar({
   draft,
   filter,
   activeThread,
+  focus,
   me,
   onFilterChange,
   onActivate,
@@ -32,7 +33,16 @@ export default function Sidebar({
   onCancelDraft,
   onSubmitDraft,
 }) {
+  const threadsRef = useRef(null);
   const openCount = threads.filter((t) => t.status === "open").length;
+
+  // Scroll the matching card into view when an inline anchor asks us to
+  // (focus.pane === "sidebar").
+  useEffect(() => {
+    if (!focus || focus.pane !== "sidebar" || !threadsRef.current) return;
+    const card = threadsRef.current.querySelector(`.thread[data-thread="${focus.id}"]`);
+    if (card) card.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focus]);
 
   const visible = threads.filter((t) => {
     if (filter === "all") return true;
@@ -64,7 +74,7 @@ export default function Sidebar({
         </div>
       </div>
 
-      <div className="threads">
+      <div className="threads" ref={threadsRef}>
         {draft && (
           <ErrorBoundary label="composer">
             <Composer

@@ -25,6 +25,7 @@ export default function DocumentPane({
   file,
   threads,
   activeThread,
+  focus,
   onSelectThread,
   onStartThread,
   onOrphans,
@@ -73,6 +74,14 @@ export default function DocumentPane({
   useEffect(() => {
     if (docRef.current) setActiveHighlight(docRef.current, activeThread);
   }, [activeThread]);
+
+  // Scroll the anchor span into view when a sidebar card asks us to (focus.pane
+  // === "doc"). The first matching span for the thread is enough.
+  useEffect(() => {
+    if (!focus || focus.pane !== "doc" || !docRef.current) return;
+    const span = docRef.current.querySelector(`.anchor[data-thread="${focus.id}"]`);
+    if (span) span.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focus]);
 
   // Selection → floating "Comment" button.
   function handleMouseUp(e) {

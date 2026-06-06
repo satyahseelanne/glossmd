@@ -48,6 +48,7 @@ export default function ThreadCard({
   return (
     <div
       className={classes}
+      data-thread={thread.thread_id}
       onClick={() => {
         if (resolved && collapsed) setCollapsed(false);
         onActivate();
