@@ -43,6 +43,18 @@ export const api = {
     return res.json();
   },
 
+  // Delete a document (with its .gloss review data) or a folder (everything
+  // under it). `type` is "doc" or "folder".
+  deleteFile: async (path, type, { owner, repo, branch = "main" } = {}) => {
+    const res = await fetch(`/file/delete${qs({ owner, repo })}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ branch, path, type }),
+    });
+    if (!res.ok) throw new Error(`deleteFile → ${res.status}`);
+    return res.json();
+  },
+
   reviews: (path, { owner, repo, branch = "main" } = {}) =>
     get(`/reviews${qs({ owner, repo, branch, path })}`),
 

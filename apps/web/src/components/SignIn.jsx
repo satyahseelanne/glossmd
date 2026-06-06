@@ -6,7 +6,7 @@
 
 import React from "react";
 
-export default function SignIn({ repo }) {
+export default function SignIn() {
   return (
     <div className="signin">
       <div className="signin-card">
@@ -14,13 +14,13 @@ export default function SignIn({ repo }) {
           <span className="glyph">¶</span> Gloss
         </div>
         <p className="signin-sub">
-          Review <b>{repo}</b> — comments commit to the repo as you.
+          Sign in to review markdown in your repositories — comments commit as you.
         </p>
         <a className="signin-btn" href="/auth/login">
           Sign in with GitHub
         </a>
         <p className="signin-fine">
-          You'll authorize Gloss to read and write the repository on your behalf.
+          You'll authorize Gloss to read and write repositories on your behalf.
           Your token is held server-side and never sent to the browser.
         </p>
       </div>

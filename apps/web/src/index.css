@@ -195,6 +195,25 @@ body {
   outline: none;
 }
 .newdoc-input::placeholder { color: var(--ink-faint); font-size: 12px; }
+.node-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.node-del {
+  font: inherit; font-size: 12px; line-height: 1; cursor: pointer;
+  width: 20px; height: 20px; border-radius: 5px; border: none;
+  background: transparent; color: var(--ink-faint);
+  opacity: 0; transition: .12s; display: flex; align-items: center; justify-content: center;
+}
+.node:hover .node-del { opacity: .7; }
+.node-del:hover { opacity: 1; background: #b3322a; color: #fff; }
+.confirm-del { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+.confirm-q { font-size: 11.5px; color: #b3322a; font-weight: 600; }
+.confirm-yes, .confirm-no {
+  font: inherit; font-size: 12px; line-height: 1; cursor: pointer;
+  width: 20px; height: 20px; border-radius: 5px; border: 1px solid var(--rule-strong);
+  background: var(--paper); display: flex; align-items: center; justify-content: center;
+}
+.confirm-yes { color: #fff; background: #b3322a; border-color: transparent; }
+.confirm-yes:hover { filter: brightness(1.08); }
+.confirm-no:hover { background: #fff; }
 .node.file.active { background: var(--ink); color: var(--paper-2); }
 .node.file.active .ic { opacity: 1; }
 .node .ic { font-size: 13px; width: 16px; text-align: center; opacity: .6; }

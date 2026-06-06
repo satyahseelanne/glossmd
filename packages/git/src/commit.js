@@ -67,6 +67,32 @@ export async function commitFile(host, { branch, path, content, maxRetries = 8 }
 }
 
 /**
+ * Remove a set of paths in one commit (a document and its co-located review
+ * data, or every file under a folder). Same pull-rebase-push CAS loop: if the
+ * branch advanced under us, we rebuild the delete on the new head and retry.
+ * Paths that don't exist on the tree are harmless no-ops in the host's tree op.
+ *
+ * @param {import("./host.js").HostAdapter} host
+ * @param {object} args
+ * @param {string} args.branch
+ * @param {string[]} args.paths   - repo paths to remove
+ * @param {number} [args.maxRetries=8]
+ * @returns {Promise<{commitSha:string, attempts:number, removed:number}>}
+ */
+export async function commitDelete(host, { branch, paths, maxRetries = 8 }) {
+  const ops = paths.map((p) => ({ op: "remove", path: p }));
+  if (ops.length === 0) return { commitSha: await host.getRef(branch), attempts: 0, removed: 0 };
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const head = await host.getRef(branch);
+    const newSha = await host.createCommit(head, ops);
+    const res = await host.updateRef(branch, head, newSha);
+    if (res.ok) return { commitSha: newSha, attempts: attempt, removed: ops.length };
+    await sleep(backoff(attempt));
+  }
+  throw new Error(`commitDelete: exceeded ${maxRetries} retries on ${branch} (contention)`);
+}
+
+/**
  * Commit a compaction: write a new checkpoint and remove the folded log files in
  * one commit, so the working tree's _log/ only ever holds un-folded actions.
  *

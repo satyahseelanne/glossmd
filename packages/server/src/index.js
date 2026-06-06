@@ -28,7 +28,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, relative, sep } from "node:path";
 import { MemoryHost, GitHubHost, asReadHost } from "@gloss/git";
-import { commitAction, commitCheckpoint, commitFile } from "@gloss/git";
+import { commitAction, commitCheckpoint, commitFile, commitDelete } from "@gloss/git";
 import { readReviewFiles } from "@gloss/git";
 import { paths } from "@gloss/git";
 import { ulid, compact } from "@gloss/core";
@@ -342,6 +342,31 @@ const server = http.createServer(async (req, res) => {
         commitFile(host, { branch, path, content }),
       );
       return json(res, 200, { ok: true, ...result });
+    }
+
+    // Delete a document (with its co-located .gloss/ review data) or a whole
+    // folder (every file beneath it). We resolve the concrete paths from the
+    // branch tree so a folder delete sweeps docs + their review logs together.
+    if (req.method === "POST" && url.pathname === "/file/delete") {
+      const body = await readBody(req);
+      const { branch = "main", path, type = "doc" } = JSON.parse(body || "{}");
+      if (!path) return json(res, 400, { error: "path required" });
+      const all = await host.listPaths(branch);
+      let remove;
+      if (type === "folder") {
+        // Everything under the folder prefix (docs and any .gloss/ data).
+        const prefix = path.endsWith("/") ? path : path + "/";
+        remove = all.filter((p) => p.startsWith(prefix));
+      } else {
+        // The doc itself plus its co-located review directory.
+        const reviewPrefix = paths.reviewDir(path) + "/";
+        remove = all.filter((p) => p === path || p.startsWith(reviewPrefix));
+      }
+      if (remove.length === 0) return json(res, 404, { error: "nothing to delete at that path" });
+      const result = await writes.run(branch, () =>
+        commitDelete(host, { branch, paths: remove }),
+      );
+      return json(res, 200, { ok: true, removedPaths: remove, ...result });
     }
 
     if (req.method === "GET" && url.pathname === "/reviews") {

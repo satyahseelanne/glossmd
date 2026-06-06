@@ -272,6 +272,27 @@ export default function App() {
     }
   }, [ctx, tree, loadDoc]);
 
+  // Delete a document (with its co-located .gloss review data) or a folder (all
+  // docs beneath it). Refreshes the tree; if the open doc was removed, clears it.
+  const deleteDoc = useCallback(async (path, type = "doc") => {
+    try {
+      await api.deleteFile(path, type, ctx);
+      const t = await api.tree(ctx);
+      const mds = (t.paths ?? []).filter((p) => p.endsWith(".md"));
+      setTree(mds);
+      // Was the currently-open doc removed?
+      const removed = type === "folder" ? docPath?.startsWith(path.replace(/\/$/, "") + "/") : docPath === path;
+      if (removed) {
+        const next = mds[0] ?? null;
+        setDocPath(next);
+        if (!next) { setFile(null); setReduced(null); }
+      }
+      setToast({ message: type === "folder" ? "Folder deleted" : "Document deleted", action: "delete_doc", id: path });
+    } catch (err) {
+      setToast({ message: `Delete failed: ${err.message}`, action: "delete_doc", id: path });
+    }
+  }, [ctx, docPath]);
+
   // Selecting a thread activates it AND asks the *other* pane to scroll it into
   // view: click an inline anchor → the sidebar card scrolls; click a card → the
   // document anchor scrolls. The `n` nonce makes repeat clicks re-fire the effect.
@@ -286,7 +307,7 @@ export default function App() {
 
   // Sign-in gate: in OAuth mode, block the app until the reviewer authenticates.
   if (authReady && authMode === "oauth" && !me) {
-    return <SignIn repo={repoInfo.slug} />;
+    return <SignIn />;
   }
 
   return (
@@ -314,6 +335,7 @@ export default function App() {
           threadCounts={threadCounts}
           onSelect={(p) => setDocPath(p)}
           onNewDoc={me ? createDoc : null}
+          onDelete={me ? deleteDoc : null}
         />
       </ErrorBoundary>
 
