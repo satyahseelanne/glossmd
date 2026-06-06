@@ -28,14 +28,20 @@ import Sidebar from "./components/Sidebar.jsx";
 import Toast from "./components/Toast.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import SignIn from "./components/SignIn.jsx";
-
-const BRANCH = "main";
+const DEFAULT_BRANCH = "main";
 
 export default function App() {
   const [me, setMe] = useState(null);                // logged-in reviewer
   const [authMode, setAuthMode] = useState(null);    // "dev" | "pat" | "oauth"
   const [authReady, setAuthReady] = useState(false);
-  const [repoInfo, setRepoInfo] = useState({ slug: "…", branch: BRANCH });
+  const [repoInfo, setRepoInfo] = useState({ slug: "…", branch: DEFAULT_BRANCH });
+
+  // --- selection: which repo + branch we're reviewing ---
+  const [repos, setRepos] = useState([]);            // [{ owner, repo, slug, default_branch }]
+  const [selRepo, setSelRepo] = useState(null);      // { owner, repo, slug }
+  const [branches, setBranches] = useState([]);
+  const [branch, setBranch] = useState(DEFAULT_BRANCH);
+
   const [tree, setTree] = useState([]);
   const [docPath, setDocPath] = useState(null);
   const [file, setFile] = useState(null);            // { content, commit }
@@ -47,9 +53,18 @@ export default function App() {
   const [orphanIds, setOrphanIds] = useState([]);    // threads the renderer couldn't locate
   const [toast, setToast] = useState(null);
 
-  // --- bootstrap: who am I? then repo identity + tree (once authenticated) ---
+  // The { owner, repo, branch } context passed to every api call.
+  const ctx = useMemo(
+    () => ({ owner: selRepo?.owner ?? undefined, repo: selRepo?.repo ?? undefined, branch }),
+    [selRepo, branch],
+  );
+
+  // --- bootstrap: who am I? then default repo identity + the repo list ---
   useEffect(() => {
-    api.repo().then(setRepoInfo).catch(console.error);
+    api.repo().then((info) => {
+      setRepoInfo(info);
+      setBranch(info.branch || DEFAULT_BRANCH);
+    }).catch(console.error);
     api.me().then((r) => {
       setMe(r.user ?? null);
       setAuthMode(r.mode ?? null);
@@ -57,26 +72,52 @@ export default function App() {
     }).catch(() => setAuthReady(true));
   }, []);
 
-  // Load the tree only once we have a reviewer (oauth) or are in dev/pat.
+  // Once authenticated, load the repos the reviewer can write to and pick one.
   useEffect(() => {
     if (!authReady || !me) return;
-    api.tree(BRANCH).then((t) => {
-      const mds = (t.paths ?? []).filter((p) => p.endsWith(".md"));
-      setTree(mds);
-      if (mds.length && !docPath) setDocPath(mds.find((p) => /design\.md$/.test(p)) ?? mds[0]);
+    api.repos().then(({ repos }) => {
+      setRepos(repos);
+      // Default to the server's configured repo if present, else the first.
+      const fromInfo = repos.find((r) => r.slug === repoInfo.slug);
+      setSelRepo(fromInfo ?? repos[0] ?? null);
     }).catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, me]);
 
+  // When the selected repo changes, load its branches and default the branch.
+  useEffect(() => {
+    if (!selRepo) return;
+    api.branches({ owner: selRepo.owner, repo: selRepo.repo }).then(({ branches }) => {
+      setBranches(branches);
+      // Keep current branch if it exists on this repo, else the repo's default.
+      setBranch((b) => (branches.includes(b) ? b : selRepo.default_branch || branches[0] || DEFAULT_BRANCH));
+    }).catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selRepo]);
+
+  // Load the file tree whenever the repo or branch changes.
+  useEffect(() => {
+    if (!authReady || !me || !selRepo) return;
+    setDocPath(null);
+    setFile(null);
+    setReduced(null);
+    api.tree(ctx).then((t) => {
+      const mds = (t.paths ?? []).filter((p) => p.endsWith(".md"));
+      setTree(mds);
+      setDocPath(mds.find((p) => /design\.md$/.test(p)) ?? mds[0] ?? null);
+    }).catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authReady, me, selRepo, branch]);
+
   // --- load the selected doc + its reviews whenever the path changes ---
   const loadDoc = useCallback(async (path) => {
     if (!path) return;
-    const [f, r] = await Promise.all([api.file(path, BRANCH), api.reviews(path, BRANCH)]);
+    const [f, r] = await Promise.all([api.file(path, ctx), api.reviews(path, ctx)]);
     setFile(f);
     setReduced(load(r.checkpoint, r.logTail));
     setActiveThread(null);
     setDraft(null);
-  }, []);
+  }, [ctx]);
 
   useEffect(() => {
     loadDoc(docPath).catch(console.error);
@@ -89,7 +130,7 @@ export default function App() {
       const counts = {};
       for (const p of tree) {
         try {
-          const r = await api.reviews(p, BRANCH);
+          const r = await api.reviews(p, ctx);
           const state = load(r.checkpoint, r.logTail);
           counts[p] = Object.values(state.threads).filter((t) => t.status === "open").length;
         } catch {
@@ -100,6 +141,7 @@ export default function App() {
       if (!cancelled) setThreadCounts(counts);
     })();
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tree, reduced]); // re-count after any commit
 
   // Live thread list — sorted by creation stamp for stable pin numbering.
@@ -128,7 +170,7 @@ export default function App() {
   // --- one post-and-refresh helper for every action type ---
   async function postAction(action, label) {
     try {
-      const res = await api.postAction(docPath, action, BRANCH);
+      const res = await api.postAction(docPath, action, ctx);
       setToast({ message: label, action: action.type, id: action.id });
       // re-load this doc; the tree-count effect re-runs because `reduced` changes.
       await loadDoc(docPath);
@@ -194,12 +236,25 @@ export default function App() {
 
   return (
     <div className="app">
-      <TopBar branch={repoInfo.branch ?? BRANCH} repo={repoInfo.slug} me={me} authMode={authMode} knownActors={knownActors} />
+      <TopBar
+        repos={repos}
+        selRepo={selRepo}
+        onSelectRepo={(slug) => {
+          const r = repos.find((x) => x.slug === slug);
+          if (r) setSelRepo(r);
+        }}
+        branches={branches}
+        branch={branch}
+        onSelectBranch={setBranch}
+        me={me}
+        authMode={authMode}
+        knownActors={knownActors}
+      />
 
       <ErrorBoundary label="file tree">
         <Tree
           paths={tree}
-          branch={BRANCH}
+          branch={branch}
           activePath={docPath}
           threadCounts={threadCounts}
           onSelect={(p) => setDocPath(p)}

@@ -17,10 +17,13 @@ foreach ($line in Get-Content $envPath) {
   Set-Item -Path "Env:$($k.Trim())" -Value $v.Trim()
 }
 
-if (-not $env:GITHUB_TOKEN -or $env:GITHUB_TOKEN -eq "PASTE_YOUR_NEW_PAT_HERE") {
-  Write-Error "GITHUB_TOKEN not set in .env. Edit .env and paste your PAT, then re-run."
+$hasPat = $env:GITHUB_TOKEN -and $env:GITHUB_TOKEN -ne "PASTE_YOUR_NEW_PAT_HERE"
+$hasOAuth = $env:GLOSS_OAUTH_CLIENT_ID -and $env:GLOSS_OAUTH_CLIENT_SECRET -and $env:GLOSS_OAUTH_CLIENT_SECRET -ne "PASTE_CLIENT_SECRET_HERE"
+if (-not $hasPat -and -not $hasOAuth) {
+  Write-Error "No auth configured in .env. Set GITHUB_TOKEN (PAT mode) or GLOSS_OAUTH_CLIENT_ID/SECRET (OAuth mode)."
   exit 1
 }
 
-Write-Host "Starting @gloss/server (live) -> $($env:GLOSS_OWNER)/$($env:GLOSS_REPO) on :8787" -ForegroundColor Green
+$mode = if ($hasOAuth) { "OAuth (multi-user)" } else { "PAT (single-user)" }
+Write-Host "Starting @gloss/server [$mode] -> $($env:GLOSS_OWNER)/$($env:GLOSS_REPO) on :8787" -ForegroundColor Green
 node packages/server/src/index.js

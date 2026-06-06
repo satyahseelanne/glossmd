@@ -1,28 +1,70 @@
 // apps/web/src/components/TopBar.jsx
 //
-// Top strip with brand, repo pill, branch, sync indicator, and the avatar
-// cluster for currently-known reviewers (drawn from threads). Cosmetic but it
-// sells the "real product" feel from the mockup.
+// Top strip: brand, repo picker, branch picker, sync indicator, reviewer
+// avatars, and (in OAuth mode) the signed-in user + sign out. The repo and
+// branch pickers are native <select>s styled to read like the mockup's pills;
+// they collapse to static text when there's only one option.
 
 import React from "react";
 import { avatarFor } from "../util/avatar.js";
 import { api } from "../api.js";
 
-export default function TopBar({ branch, repo, me, authMode, knownActors }) {
+export default function TopBar({
+  repos,
+  selRepo,
+  onSelectRepo,
+  branches,
+  branch,
+  onSelectBranch,
+  me,
+  authMode,
+  knownActors,
+}) {
   const actors = Array.from(new Map(knownActors.map((a) => [a.id, a])).values()).slice(0, 4);
+  const manyRepos = repos && repos.length > 1;
+  const manyBranches = branches && branches.length > 1;
+
   async function signOut() {
     await api.logout();
     window.location.reload();
   }
+
   return (
     <header className="topbar">
       <div className="brand">
         <span className="glyph">¶</span> Gloss
       </div>
-      <div className="repo-pill">
-        ⌥ <b>{repo}</b>
-      </div>
-      <div className="branch">⎇ {branch}</div>
+
+      {manyRepos ? (
+        <div className="repo-pill select-pill" title="Switch repository">
+          <span className="pill-ic">⌥</span>
+          <select className="pill-select" value={selRepo?.slug ?? ""} onChange={(e) => onSelectRepo(e.target.value)}>
+            {repos.map((r) => (
+              <option key={r.slug} value={r.slug}>
+                {r.slug}{r.private ? " · private" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : (
+        <div className="repo-pill">
+          ⌥ <b>{selRepo?.slug ?? "…"}</b>
+        </div>
+      )}
+
+      {manyBranches ? (
+        <div className="branch select-pill" title="Switch branch">
+          <span className="pill-ic">⎇</span>
+          <select className="pill-select branch-select" value={branch} onChange={(e) => onSelectBranch(e.target.value)}>
+            {branches.map((b) => (
+              <option key={b} value={b}>{b}</option>
+            ))}
+          </select>
+        </div>
+      ) : (
+        <div className="branch">⎇ {branch}</div>
+      )}
+
       <div className="spacer" />
       <div className="sync">
         <span className="dot" /> Synced · committing to{" "}

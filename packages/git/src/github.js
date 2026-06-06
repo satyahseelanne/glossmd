@@ -158,4 +158,55 @@ export class GitHubHost {
     );
     return (tree.tree ?? []).filter((t) => t.type === "blob").map((t) => t.path);
   }
+
+  /** Branch names for this repo (newest activity first as GitHub returns them). */
+  async listBranches() {
+    const out = [];
+    for (let page = 1; page <= 5; page++) {
+      const items = await this._api(`${this.base()}/branches?per_page=100&page=${page}`);
+      if (!Array.isArray(items) || items.length === 0) break;
+      out.push(...items.map((b) => b.name));
+      if (items.length < 100) break;
+    }
+    return out;
+  }
+
+  /**
+   * Repos the authenticated token can push to (owner or collaborator). Static
+   * because it isn't repo-scoped — pass any token. Returns `[{ owner, repo, slug,
+   * private, default_branch }]` sorted by recent push.
+   * @param {string} token
+   * @param {typeof fetch} [f]
+   */
+  static async listRepos(token, f = fetch) {
+    const out = [];
+    for (let page = 1; page <= 5; page++) {
+      const res = await f(
+        `${API}/user/repos?per_page=100&page=${page}&sort=pushed&affiliation=owner,collaborator,organization_member`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": "gloss",
+          },
+        },
+      );
+      if (!res.ok) throw new Error(`GitHub GET /user/repos → ${res.status}`);
+      const items = await res.json();
+      if (!Array.isArray(items) || items.length === 0) break;
+      for (const r of items) {
+        if (!r.permissions?.push) continue; // need write to commit comments
+        out.push({
+          owner: r.owner.login,
+          repo: r.name,
+          slug: r.full_name,
+          private: r.private,
+          default_branch: r.default_branch,
+        });
+      }
+      if (items.length < 100) break;
+    }
+    return out;
+  }
 }

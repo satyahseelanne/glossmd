@@ -11,6 +11,8 @@ export default defineConfig({
       "/reviews": "http://localhost:8787",
       "/auth": "http://localhost:8787",
       "/repo": "http://localhost:8787",
+      "/repos": "http://localhost:8787",
+      "/branches": "http://localhost:8787",
     },
   },
 });

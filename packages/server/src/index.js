@@ -126,13 +126,28 @@ if (MODE === "oauth") requireRepoEnv();
 const DEV_USER = { id: "u_dev", name: "Dev User", login: "dev" };
 const PAT_USER = { id: "u_pat", name: process.env.GLOSS_OWNER || "Owner", login: process.env.GLOSS_OWNER || "owner" };
 
-// Resolve the HostAdapter for a request. Returns { host } or { needsLogin:true }.
-function resolveHost(req) {
-  if (MODE !== "oauth") return { host: sharedHost };
-  const s = sessions.get(sidFromReq(req));
-  if (!s) return { needsLogin: true };
-  const { owner, repo } = requireRepoEnv();
-  return { host: new GitHubHost({ owner, repo, token: s.token }), user: s.user };
+// The session token for a request (oauth), or the env PAT (pat), or null (dev).
+function tokenFor(req) {
+  if (MODE === "oauth") {
+    const s = sessions.get(sidFromReq(req));
+    return s ? s.token : null;
+  }
+  if (MODE === "pat") return process.env.GITHUB_TOKEN;
+  return null;
+}
+
+// Resolve the HostAdapter for a request, for a specific owner/repo. In dev the
+// host is the fixed in-memory singleton (owner/repo ignored). In pat/oauth we
+// build a GitHubHost for the requested repo from the request's token — so the
+// repo is selectable per request, not pinned at boot. Returns { host } or
+// { needsLogin:true }.
+function resolveHost(req, owner, repo) {
+  if (MODE === "dev") return { host: sharedHost };
+  const token = tokenFor(req);
+  if (!token) return { needsLogin: true };
+  const o = owner || process.env.GLOSS_OWNER;
+  const r = repo || process.env.GLOSS_REPO;
+  return { host: new GitHubHost({ owner: o, repo: r, token }) };
 }
 
 // The reviewer identity for a request, or null. Drives /auth/me and is what the
@@ -256,14 +271,43 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && url.pathname === "/repo") {
-      // Tells the web app which repo/branch it's actually pointed at.
+      // Tells the web app the default repo/branch the server boots with.
       return json(res, 200, REPO_INFO);
     }
 
+    // Repos the signed-in reviewer can write to (oauth). In dev/pat there is
+    // exactly one repo, so we report that.
+    if (req.method === "GET" && url.pathname === "/repos") {
+      if (MODE === "dev") {
+        return json(res, 200, { repos: [{ owner: null, repo: "examples/repo", slug: "examples/repo", default_branch: "main" }] });
+      }
+      const token = tokenFor(req);
+      if (!token) return json(res, 401, { error: "login required", login: "/auth/login" });
+      if (MODE === "pat") {
+        // A PAT may be fine-grained to one repo; just report the configured one.
+        return json(res, 200, {
+          repos: [{ owner: process.env.GLOSS_OWNER, repo: process.env.GLOSS_REPO, slug: `${process.env.GLOSS_OWNER}/${process.env.GLOSS_REPO}`, default_branch: process.env.GLOSS_BRANCH || "main" }],
+        });
+      }
+      const repos = await GitHubHost.listRepos(token);
+      return json(res, 200, { repos });
+    }
+
+    // owner/repo for the data routes come from the query (default to env), so the
+    // repo is selectable per request.
+    const owner = q.get("owner") || process.env.GLOSS_OWNER;
+    const repo = q.get("repo") || process.env.GLOSS_REPO;
+
     // --- everything below needs a host; in oauth mode that means a session --
-    const resolved = resolveHost(req);
+    const resolved = resolveHost(req, owner, repo);
     if (resolved.needsLogin) return json(res, 401, { error: "login required", login: "/auth/login" });
     const host = resolved.host;
+
+    // Branches for the selected repo.
+    if (req.method === "GET" && url.pathname === "/branches") {
+      const branches = await host.listBranches();
+      return json(res, 200, { branches });
+    }
 
     if (req.method === "GET" && url.pathname === "/tree") {
       const branch = q.get("branch") || "main";

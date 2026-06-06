@@ -100,6 +100,11 @@ export class MemoryHost {
   async listPaths(branch) {
     return Object.keys(await this.snapshot(branch));
   }
+
+  /** Branch names this host knows about — mirrors GitHubHost.listBranches. */
+  async listBranches() {
+    return [...this.refs.keys()];
+  }
 }
 
 /**
