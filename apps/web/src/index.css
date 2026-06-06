@@ -161,7 +161,15 @@ body {
 .tree h4 {
   font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase;
   color: var(--ink-faint); font-weight: 700; margin: 6px 8px 10px;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
 }
+.tree-new {
+  font: inherit; font-size: 10.5px; letter-spacing: .04em; font-weight: 700;
+  text-transform: uppercase; cursor: pointer;
+  padding: 3px 9px; border-radius: 6px; border: 1px solid var(--rule-strong);
+  background: var(--paper); color: var(--ink-soft);
+}
+.tree-new:hover { background: var(--ink); color: var(--paper-2); border-color: transparent; }
 .node {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 9px; border-radius: 7px; font-size: 13.5px; color: var(--ink-soft);
@@ -169,6 +177,24 @@ body {
 }
 .node:hover { background: #fff; }
 .node.dir { font-weight: 600; color: var(--ink); }
+.node.dir .dir-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dir-new {
+  font: inherit; font-size: 15px; line-height: 1; cursor: pointer;
+  width: 20px; height: 20px; border-radius: 5px; border: none;
+  background: transparent; color: var(--ink-faint);
+  opacity: 0; transition: .12s; display: flex; align-items: center; justify-content: center;
+}
+.node.dir:hover .dir-new { opacity: 1; }
+.dir-new:hover { background: var(--ink); color: var(--paper-2); }
+.node.newdoc { cursor: default; }
+.node.newdoc:hover { background: transparent; }
+.newdoc-input {
+  flex: 1; min-width: 0; font: inherit; font-size: 13px;
+  padding: 2px 6px; border-radius: 5px;
+  border: 1px solid var(--ochre); background: #fff; color: var(--ink);
+  outline: none;
+}
+.newdoc-input::placeholder { color: var(--ink-faint); font-size: 12px; }
 .node.file.active { background: var(--ink); color: var(--paper-2); }
 .node.file.active .ic { opacity: 1; }
 .node .ic { font-size: 13px; width: 16px; text-align: center; opacity: .6; }

@@ -28,6 +28,7 @@ export default function DocumentPane({
   activeThread,
   focus,
   canEdit,
+  editRequest,
   onSelectThread,
   onStartThread,
   onSaveDoc,
@@ -38,6 +39,7 @@ export default function DocumentPane({
   const [mode, setMode] = useState("read");        // "read" | "edit"
   const [editContent, setEditContent] = useState(""); // markdown buffer while editing
   const [saving, setSaving] = useState(false);
+  const handledEditReq = useRef(0);                // last editRequest nonce we acted on
 
   const html = useMemo(() => (file ? marked.parse(file.content) : ""), [file]);
 
@@ -47,6 +49,18 @@ export default function DocumentPane({
     setMode("read");
     setFloatBtn(null);
   }, [docPath]);
+
+  // A new-doc request (editRequest nonce bumped by the parent) opens this pane
+  // straight in Edit mode. We wait until the freshly-created file has loaded for
+  // this path so the editor seeds from the right content, then mark it handled.
+  useEffect(() => {
+    if (!editRequest || editRequest === handledEditReq.current) return;
+    if (!file || file.path !== docPath) return; // file for this doc not loaded yet
+    handledEditReq.current = editRequest;
+    setEditContent(file.content ?? "");
+    setFloatBtn(null);
+    setMode("edit");
+  }, [editRequest, file, docPath]);
 
   function enterEdit() {
     setEditContent(file?.content ?? "");

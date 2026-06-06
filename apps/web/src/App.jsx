@@ -53,6 +53,7 @@ export default function App() {
   const [filter, setFilter] = useState("all");
   const [orphanIds, setOrphanIds] = useState([]);    // threads the renderer couldn't locate
   const [toast, setToast] = useState(null);
+  const [editRequest, setEditRequest] = useState(0); // nonce: ask the doc pane to open in Edit mode
 
   // The { owner, repo, branch } context passed to every api call.
   const ctx = useMemo(
@@ -245,6 +246,32 @@ export default function App() {
     }
   }, [docPath, ctx, loadDoc]);
 
+  // Create a new document. A path like "design/api/spec.md" creates the folders
+  // implicitly (git has no empty dirs). Commits a starter heading, refreshes the
+  // tree, selects the new doc, and signals the doc pane to open straight in Edit.
+  const createDoc = useCallback(async (rawPath) => {
+    const path = normalizeDocPath(rawPath);
+    if (!path) return;
+    if (tree.includes(path)) {
+      setToast({ message: "That document already exists", action: "create_doc", id: path });
+      setDocPath(path);
+      return;
+    }
+    const title = path.split("/").pop().replace(/\.md$/i, "").replace(/[-_]+/g, " ").trim();
+    const content = `# ${title || "Untitled"}\n\n`;
+    try {
+      await api.saveFile(path, content, ctx);
+      const t = await api.tree(ctx);
+      setTree((t.paths ?? []).filter((p) => p.endsWith(".md")));
+      setDocPath(path);
+      await loadDoc(path);
+      setEditRequest((n) => n + 1); // open the fresh doc in Edit mode
+      setToast({ message: "Document created", action: "create_doc", id: path });
+    } catch (err) {
+      setToast({ message: `Create failed: ${err.message}`, action: "create_doc", id: path });
+    }
+  }, [ctx, tree, loadDoc]);
+
   // Selecting a thread activates it AND asks the *other* pane to scroll it into
   // view: click an inline anchor → the sidebar card scrolls; click a card → the
   // document anchor scrolls. The `n` nonce makes repeat clicks re-fire the effect.
@@ -286,6 +313,7 @@ export default function App() {
           activePath={docPath}
           threadCounts={threadCounts}
           onSelect={(p) => setDocPath(p)}
+          onNewDoc={me ? createDoc : null}
         />
       </ErrorBoundary>
 
@@ -297,6 +325,7 @@ export default function App() {
           activeThread={activeThread}
           focus={focus}
           canEdit={!!me}
+          editRequest={editRequest}
           onSelectThread={selectFromDoc}
           onStartThread={startThread}
           onSaveDoc={saveDoc}
@@ -326,5 +355,17 @@ export default function App() {
       <Toast toast={toast} onClear={() => setToast(null)} />
     </div>
   );
+}
+
+// Normalize a user-typed document path: trim, drop a leading slash, collapse
+// repeated slashes, and ensure a .md extension. Returns "" if there's nothing
+// usable (so callers can bail). Folders in the path are created implicitly on
+// commit — git has no standalone directories.
+function normalizeDocPath(raw) {
+  if (!raw) return "";
+  let p = String(raw).trim().replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/{2,}/g, "/");
+  if (!p || p.endsWith("/")) return "";
+  if (!/\.md$/i.test(p)) p += ".md";
+  return p;
 }
 
