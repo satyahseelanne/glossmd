@@ -20,6 +20,11 @@ param webImageName string
 var placeholderImage = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
 var image = empty(webImageName) ? placeholderImage : webImageName
 
+// ACA rejects an empty secret value. When no secret is supplied at deploy time
+// (set later directly on the resource), store a placeholder so the app is valid;
+// OAuth sign-in starts working once the real value replaces it.
+var oauthSecretValue = empty(glossOauthClientSecret) ? 'set-me-later' : glossOauthClientSecret
+
 // --- observability ---
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: 'log-${resourceToken}'
@@ -31,29 +36,12 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   }
 }
 
-// --- key vault holding the OAuth client secret ---
-// RBAC-authorized; the container app's managed identity reads the secret at
-// runtime, so the value never lives in the container config or the image.
-resource vault 'Microsoft.KeyVault/vaults@2023-07-01' = {
-  name: 'kv-${resourceToken}'
-  location: location
-  tags: tags
-  properties: {
-    tenantId: subscription().tenantId
-    sku: { family: 'A', name: 'standard' }
-    enableRbacAuthorization: true
-    enableSoftDelete: true
-    softDeleteRetentionInDays: 7
-  }
-}
-
-resource oauthSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
-  parent: vault
-  name: 'gloss-oauth-client-secret'
-  properties: {
-    value: glossOauthClientSecret
-  }
-}
+// --- key vault ---
+// NOTE: a tenant Azure Policy denies Key Vault unless it sits behind a Network
+// Security Perimeter, so for now the OAuth secret is held as a Container App
+// secret instead (set at deploy time, encrypted at rest, injected as env). The
+// app reads the same GLOSS_OAUTH_CLIENT_SECRET env var either way, so moving to
+// Key Vault later (once a perimeter exists) is a non-breaking infra change.
 
 // --- container registry ---
 resource registry 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' = {
@@ -62,40 +50,17 @@ resource registry 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' = 
   tags: tags
   sku: { name: 'Basic' }
   properties: {
-    adminUserEnabled: false
+    // Admin user lets the container app authenticate to the registry with a
+    // username/password secret — avoids needing an AcrPull role assignment.
+    adminUserEnabled: true
   }
 }
 
-// --- identity the container app uses to pull from ACR ---
+// --- identity for the container app (kept for future Key Vault / RBAC use) ---
 resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: 'id-${resourceToken}'
   location: location
   tags: tags
-}
-
-var acrPullRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
-
-resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(registry.id, identity.id, acrPullRoleId)
-  scope: registry
-  properties: {
-    roleDefinitionId: acrPullRoleId
-    principalId: identity.properties.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
-// Key Vault Secrets User — lets the identity read the OAuth secret at runtime.
-var kvSecretsUserRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
-
-resource kvSecretsUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(vault.id, identity.id, kvSecretsUserRoleId)
-  scope: vault
-  properties: {
-    roleDefinitionId: kvSecretsUserRoleId
-    principalId: identity.properties.principalId
-    principalType: 'ServicePrincipal'
-  }
 }
 
 // --- container apps environment ---
@@ -119,11 +84,6 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
   name: 'ca-web-${resourceToken}'
   location: location
   tags: union(tags, { 'azd-service-name': 'web' })
-  // Depend on the role assignment so RBAC has propagated before the app reads the
-  // Key Vault secret (the secret URI reference already orders the secret itself).
-  dependsOn: [
-    kvSecretsUser
-  ]
   identity: {
     type: 'UserAssigned'
     userAssignedIdentities: { '${identity.id}': {} }
@@ -140,17 +100,21 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
       }
       registries: [
         {
+          // ACR admin creds (username/password) — no AcrPull role assignment needed.
           server: registry.properties.loginServer
-          identity: identity.id
+          username: registry.listCredentials().username
+          passwordSecretRef: 'acr-password'
         }
       ]
       secrets: [
         {
-          // Key Vault-backed: the value lives in KV, pulled at runtime via the
-          // user-assigned identity. Unversioned URI so rotation needs no redeploy.
+          name: 'acr-password'
+          value: registry.listCredentials().passwords[0].value
+        }
+        {
+          // Inline Container App secret (encrypted at rest), set at deploy time.
           name: 'gloss-oauth-client-secret'
-          keyVaultUrl: oauthSecret.properties.secretUri
-          identity: identity.id
+          value: oauthSecretValue
         }
       ]
     }
@@ -183,5 +147,4 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
 
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = registry.properties.loginServer
 output AZURE_CONTAINER_REGISTRY_NAME string = registry.name
-output AZURE_KEY_VAULT_NAME string = vault.name
 output SERVICE_WEB_URI string = 'https://${web.properties.configuration.ingress.fqdn}'

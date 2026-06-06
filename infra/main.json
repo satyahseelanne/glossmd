@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.43.8.12551",
-      "templateHash": "6665733058517148715"
+      "templateHash": "9819694587638641955"
     }
   },
   "parameters": {
@@ -107,7 +107,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.43.8.12551",
-              "templateHash": "1052217801938152966"
+              "templateHash": "15132800832864796398"
             }
           },
           "parameters": {
@@ -145,8 +145,7 @@
           "variables": {
             "placeholderImage": "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest",
             "image": "[if(empty(parameters('webImageName')), variables('placeholderImage'), parameters('webImageName'))]",
-            "acrPullRoleId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
-            "kvSecretsUserRoleId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')]"
+            "oauthSecretValue": "[if(empty(parameters('glossOauthClientSecret')), 'set-me-later', parameters('glossOauthClientSecret'))]"
           },
           "resources": [
             {
@@ -163,34 +162,6 @@
               }
             },
             {
-              "type": "Microsoft.KeyVault/vaults",
-              "apiVersion": "2023-07-01",
-              "name": "[format('kv-{0}', parameters('resourceToken'))]",
-              "location": "[parameters('location')]",
-              "tags": "[parameters('tags')]",
-              "properties": {
-                "tenantId": "[subscription().tenantId]",
-                "sku": {
-                  "family": "A",
-                  "name": "standard"
-                },
-                "enableRbacAuthorization": true,
-                "enableSoftDelete": true,
-                "softDeleteRetentionInDays": 7
-              }
-            },
-            {
-              "type": "Microsoft.KeyVault/vaults/secrets",
-              "apiVersion": "2023-07-01",
-              "name": "[format('{0}/{1}', format('kv-{0}', parameters('resourceToken')), 'gloss-oauth-client-secret')]",
-              "properties": {
-                "value": "[parameters('glossOauthClientSecret')]"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.KeyVault/vaults', format('kv-{0}', parameters('resourceToken')))]"
-              ]
-            },
-            {
               "type": "Microsoft.ContainerRegistry/registries",
               "apiVersion": "2023-11-01-preview",
               "name": "[format('acr{0}', parameters('resourceToken'))]",
@@ -200,7 +171,7 @@
                 "name": "Basic"
               },
               "properties": {
-                "adminUserEnabled": false
+                "adminUserEnabled": true
               }
             },
             {
@@ -209,36 +180,6 @@
               "name": "[format('id-{0}', parameters('resourceToken'))]",
               "location": "[parameters('location')]",
               "tags": "[parameters('tags')]"
-            },
-            {
-              "type": "Microsoft.Authorization/roleAssignments",
-              "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.ContainerRegistry/registries', format('acr{0}', parameters('resourceToken')))]",
-              "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', format('acr{0}', parameters('resourceToken'))), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}', parameters('resourceToken'))), variables('acrPullRoleId'))]",
-              "properties": {
-                "roleDefinitionId": "[variables('acrPullRoleId')]",
-                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}', parameters('resourceToken'))), '2023-01-31').principalId]",
-                "principalType": "ServicePrincipal"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}', parameters('resourceToken')))]",
-                "[resourceId('Microsoft.ContainerRegistry/registries', format('acr{0}', parameters('resourceToken')))]"
-              ]
-            },
-            {
-              "type": "Microsoft.Authorization/roleAssignments",
-              "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.KeyVault/vaults', format('kv-{0}', parameters('resourceToken')))]",
-              "name": "[guid(resourceId('Microsoft.KeyVault/vaults', format('kv-{0}', parameters('resourceToken'))), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}', parameters('resourceToken'))), variables('kvSecretsUserRoleId'))]",
-              "properties": {
-                "roleDefinitionId": "[variables('kvSecretsUserRoleId')]",
-                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}', parameters('resourceToken'))), '2023-01-31').principalId]",
-                "principalType": "ServicePrincipal"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}', parameters('resourceToken')))]",
-                "[resourceId('Microsoft.KeyVault/vaults', format('kv-{0}', parameters('resourceToken')))]"
-              ]
             },
             {
               "type": "Microsoft.App/managedEnvironments",
@@ -284,14 +225,18 @@
                   "registries": [
                     {
                       "server": "[reference(resourceId('Microsoft.ContainerRegistry/registries', format('acr{0}', parameters('resourceToken'))), '2023-11-01-preview').loginServer]",
-                      "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}', parameters('resourceToken')))]"
+                      "username": "[listCredentials(resourceId('Microsoft.ContainerRegistry/registries', format('acr{0}', parameters('resourceToken'))), '2023-11-01-preview').username]",
+                      "passwordSecretRef": "acr-password"
                     }
                   ],
                   "secrets": [
                     {
+                      "name": "acr-password",
+                      "value": "[listCredentials(resourceId('Microsoft.ContainerRegistry/registries', format('acr{0}', parameters('resourceToken'))), '2023-11-01-preview').passwords[0].value]"
+                    },
+                    {
                       "name": "gloss-oauth-client-secret",
-                      "keyVaultUrl": "[reference(resourceId('Microsoft.KeyVault/vaults/secrets', format('kv-{0}', parameters('resourceToken')), 'gloss-oauth-client-secret'), '2023-07-01').secretUri]",
-                      "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}', parameters('resourceToken')))]"
+                      "value": "[variables('oauthSecretValue')]"
                     }
                   ]
                 },
@@ -337,8 +282,6 @@
               "dependsOn": [
                 "[resourceId('Microsoft.App/managedEnvironments', format('cae-{0}', parameters('resourceToken')))]",
                 "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}', parameters('resourceToken')))]",
-                "[extensionResourceId(resourceId('Microsoft.KeyVault/vaults', format('kv-{0}', parameters('resourceToken'))), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.KeyVault/vaults', format('kv-{0}', parameters('resourceToken'))), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}', parameters('resourceToken'))), variables('kvSecretsUserRoleId')))]",
-                "[resourceId('Microsoft.KeyVault/vaults/secrets', format('kv-{0}', parameters('resourceToken')), 'gloss-oauth-client-secret')]",
                 "[resourceId('Microsoft.ContainerRegistry/registries', format('acr{0}', parameters('resourceToken')))]"
               ]
             }
@@ -351,10 +294,6 @@
             "AZURE_CONTAINER_REGISTRY_NAME": {
               "type": "string",
               "value": "[format('acr{0}', parameters('resourceToken'))]"
-            },
-            "AZURE_KEY_VAULT_NAME": {
-              "type": "string",
-              "value": "[format('kv-{0}', parameters('resourceToken'))]"
             },
             "SERVICE_WEB_URI": {
               "type": "string",
@@ -384,10 +323,6 @@
     "AZURE_CONTAINER_REGISTRY_NAME": {
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'resources'), '2025-04-01').outputs.AZURE_CONTAINER_REGISTRY_NAME.value]"
-    },
-    "AZURE_KEY_VAULT_NAME": {
-      "type": "string",
-      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', parameters('environmentName'))), 'Microsoft.Resources/deployments', 'resources'), '2025-04-01').outputs.AZURE_KEY_VAULT_NAME.value]"
     },
     "SERVICE_WEB_URI": {
       "type": "string",

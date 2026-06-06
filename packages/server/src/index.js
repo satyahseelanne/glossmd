@@ -130,6 +130,26 @@ const WEB_DIST = process.env.GLOSS_WEB_DIST
 const SERVE_WEB = existsSync(join(WEB_DIST, "index.html"));
 if (SERVE_WEB) console.log(`serving SPA from ${WEB_DIST}`);
 
+// Exact API pathnames the router owns. Used to keep the static SPA fallback from
+// shadowing data routes that are reached after the auth gate (GET /tree, /file,
+// /reviews, /branches). Anything not in this set is treated as a client route
+// and served the SPA shell.
+const API_PATHS = new Set([
+  "/auth/login",
+  "/auth/callback",
+  "/auth/me",
+  "/auth/logout",
+  "/repo",
+  "/repos",
+  "/branches",
+  "/tree",
+  "/file",
+  "/file/delete",
+  "/reviews",
+  "/reviews/actions",
+  "/reviews/compact",
+]);
+
 // In dev/pat the host is a fixed singleton. In oauth it's built per request from
 // the reviewer's session token.
 const sharedHost = MODE === "dev" ? devHost() : MODE === "pat" ? patHost() : null;
@@ -312,6 +332,18 @@ const server = http.createServer(async (req, res) => {
     const owner = q.get("owner") || process.env.GLOSS_OWNER;
     const repo = q.get("repo") || process.env.GLOSS_REPO;
 
+    // Static SPA (production). Serve before the auth gate below so the app shell
+    // and its assets load for signed-out users (the sign-in happens in the SPA).
+    // Only non-API GET/HEAD paths reach here; the API routes above already
+    // returned, and the data routes below are matched by exact pathname.
+    if (
+      SERVE_WEB &&
+      (req.method === "GET" || req.method === "HEAD") &&
+      !API_PATHS.has(url.pathname)
+    ) {
+      if (serveStatic(req, res, url.pathname)) return;
+    }
+
     // --- everything below needs a host; in oauth mode that means a session --
     const resolved = resolveHost(req, owner, repo);
     if (resolved.needsLogin) return json(res, 401, { error: "login required", login: "/auth/login" });
@@ -433,15 +465,6 @@ const server = http.createServer(async (req, res) => {
         "access-control-allow-headers": "content-type",
       });
       return res.end();
-    }
-
-    // Static SPA (production). Anything that isn't an API route falls through to
-    // here: serve the requested file from the build, or index.html for client
-    // routes (SPA fallback). API routes already returned above, so this never
-    // shadows them.
-    if (SERVE_WEB && (req.method === "GET" || req.method === "HEAD")) {
-      const served = serveStatic(req, res, url.pathname);
-      if (served) return;
     }
 
     return json(res, 404, { error: "no route" });
