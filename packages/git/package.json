@@ -1,0 +1,12 @@
+{
+  "name": "@gloss/git",
+  "version": "0.1.0",
+  "description": "Git read/write layer for Gloss: host adapters and the pull-rebase-push commit loop.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": { ".": "./src/index.js" },
+  "scripts": { "test": "node --test" },
+  "dependencies": { "@gloss/core": "0.1.0" },
+  "license": "MIT",
+  "engines": { "node": ">=20" }
+}

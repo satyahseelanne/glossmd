@@ -1,0 +1,11 @@
+{
+  "name": "@gloss/server",
+  "version": "0.1.0",
+  "description": "Thin backend for Gloss: OAuth to the git host, repo reads, and committing actions to the branch.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": { "dev": "node src/index.js --dev", "start": "node src/index.js" },
+  "dependencies": { "@gloss/core": "0.1.0", "@gloss/git": "0.1.0" },
+  "license": "MIT",
+  "engines": { "node": ">=20" }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@gloss/anchor",
+  "version": "0.1.0",
+  "description": "Rendered-text anchoring for Gloss: capture TextQuoteSelectors and fuzzy-relocate them, flagging orphans.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": { ".": "./src/index.js" },
+  "scripts": { "test": "node --test" },
+  "license": "MIT",
+  "engines": { "node": ">=20" }
+}

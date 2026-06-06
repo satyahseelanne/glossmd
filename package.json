@@ -1,0 +1,21 @@
+{
+  "name": "gloss",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Word-style review comments for markdown that lives in git. Portable, append-only, no database.",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "test": "node --test packages/*/test/*.test.js",
+    "demo": "node packages/core/demo.js",
+    "server:dev": "node packages/server/src/index.js --dev",
+    "typecheck": "tsc -p tsconfig.base.json"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}

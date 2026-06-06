@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gloss — Review Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f7f3ea;
+    --paper-2:#fbf8f1;
+    --ink:#23201a;
+    --ink-soft:#5c564b;
+    --ink-faint:#938b7c;
+    --rule:#e3dccc;
+    --rule-strong:#d3c9b3;
+    --ochre:#b07d34;
+    --ochre-soft:#e9d4a8;
+    --ochre-glow:rgba(176,125,52,.16);
+    --highlight:#f3e2b8;
+    --highlight-active:#ecc96f;
+    --sidebar:#211e18;
+    --sidebar-2:#2a261e;
+    --sidebar-ink:#ece5d6;
+    --sidebar-faint:#a59c89;
+    --sidebar-line:#3a352b;
+    --teal:#3f7d74;
+    --rose:#a8584e;
+    --green:#5f7d3f;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:'Hanken Grotesk',sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{
+    display:grid;
+    grid-template-columns:248px 1fr 372px;
+    grid-template-rows:54px 1fr;
+    height:100vh;
+  }
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    grid-column:1 / -1;
+    display:flex;align-items:center;gap:18px;
+    padding:0 20px;
+    background:var(--paper-2);
+    border-bottom:1px solid var(--rule-strong);
+    z-index:30;
+  }
+  .brand{display:flex;align-items:center;gap:10px;font-family:'Fraunces';font-weight:600;font-size:19px;letter-spacing:-.01em}
+  .brand .glyph{
+    width:26px;height:26px;border-radius:7px;
+    background:linear-gradient(150deg,var(--ochre),#8a5d22);
+    display:grid;place-items:center;color:#f7f3ea;font-size:15px;
+    box-shadow:0 2px 6px rgba(138,93,34,.4);
+  }
+  .repo-pill{
+    display:flex;align-items:center;gap:9px;
+    margin-left:6px;padding:6px 12px;
+    background:#fff;border:1px solid var(--rule-strong);border-radius:9px;
+    font-size:13px;color:var(--ink-soft);cursor:pointer;transition:.15s;
+  }
+  .repo-pill:hover{border-color:var(--ochre);color:var(--ink)}
+  .repo-pill b{color:var(--ink);font-weight:600}
+  .branch{
+    display:flex;align-items:center;gap:6px;
+    padding:6px 11px;background:var(--ochre-glow);border:1px solid var(--ochre-soft);
+    border-radius:9px;font-size:12.5px;color:var(--ochre);font-weight:600;
+    font-family:'JetBrains Mono';cursor:pointer;
+  }
+  .spacer{flex:1}
+  .sync{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-faint)}
+  .sync .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(95,125,63,.18)}
+  .avatars{display:flex;margin-left:6px}
+  .avatars .av{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:600;border:2px solid var(--paper-2);margin-left:-8px}
+
+  /* ---------- file tree ---------- */
+  .tree{
+    background:var(--paper-2);
+    border-right:1px solid var(--rule-strong);
+    overflow-y:auto;padding:16px 12px;
+  }
+  .tree h4{
+    font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--ink-faint);font-weight:700;margin:6px 8px 10px;
+  }
+  .node{
+    display:flex;align-items:center;gap:8px;
+    padding:6px 9px;border-radius:7px;font-size:13.5px;color:var(--ink-soft);
+    cursor:pointer;user-select:none;transition:.12s;
+  }
+  .node:hover{background:#fff}
+  .node.dir{font-weight:600;color:var(--ink)}
+  .node.file.active{background:var(--ink);color:var(--paper-2)}
+  .node.file.active .ic{opacity:1}
+  .node .ic{font-size:13px;width:16px;text-align:center;opacity:.6}
+  .node .badge{
+    margin-left:auto;font-size:10.5px;font-weight:700;font-family:'JetBrains Mono';
+    background:var(--ochre);color:#fff;border-radius:20px;padding:1px 7px;
+  }
+  .node.file.active .badge{background:var(--ochre-soft);color:#3a2a10}
+  .indent{padding-left:18px}
+
+  /* ---------- document ---------- */
+  .doc-wrap{position:relative;overflow-y:auto;background:var(--paper)}
+  .doc-wrap::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:1;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.025'/%3E%3C/svg%3E");
+  }
+  .doc-head{
+    position:sticky;top:0;z-index:5;
+    backdrop-filter:blur(6px);background:rgba(247,243,234,.85);
+    border-bottom:1px solid var(--rule);
+    padding:11px 0;
+  }
+  .doc-head .inner{max-width:760px;margin:0 auto;padding:0 56px;display:flex;align-items:center;gap:10px}
+  .crumb{font-size:12.5px;color:var(--ink-faint);font-family:'JetBrains Mono'}
+  .crumb b{color:var(--ink-soft)}
+  .commit-tag{
+    margin-left:auto;font-family:'JetBrains Mono';font-size:11.5px;
+    color:var(--ink-faint);display:flex;align-items:center;gap:6px;
+  }
+  .commit-tag code{background:#fff;border:1px solid var(--rule);padding:1px 7px;border-radius:6px;color:var(--ochre)}
+  .doc{
+    position:relative;z-index:2;
+    max-width:760px;margin:0 auto;padding:40px 56px 160px;
+  }
+  .doc h1{font-family:'Fraunces';font-weight:600;font-size:38px;line-height:1.1;letter-spacing:-.02em;margin-bottom:6px}
+  .doc .sub{color:var(--ink-faint);font-size:13.5px;margin-bottom:34px;font-family:'JetBrains Mono'}
+  .doc h2{
+    font-family:'Fraunces';font-weight:600;font-size:23px;letter-spacing:-.01em;
+    margin:38px 0 14px;padding-top:8px;
+  }
+  .doc h2 .num{color:var(--ochre);margin-right:10px;font-size:18px;vertical-align:1px}
+  .doc p,.doc li{
+    font-family:'Newsreader';font-size:18.5px;line-height:1.66;color:#322e26;
+    margin-bottom:15px;
+  }
+  .doc ul{padding-left:22px;margin-bottom:15px}
+  .doc li{margin-bottom:7px}
+  .doc code.inl{font-family:'JetBrains Mono';font-size:14.5px;background:#efe9da;border:1px solid var(--rule);padding:1px 6px;border-radius:5px;color:#6b4f22}
+  .doc strong{font-weight:600;color:var(--ink)}
+
+  /* anchored highlights */
+  .anchor{
+    background:linear-gradient(var(--highlight),var(--highlight));
+    background-size:100% 88%;background-position:0 92%;background-repeat:no-repeat;
+    border-bottom:2px solid var(--ochre-soft);
+    cursor:pointer;border-radius:2px;transition:.18s;padding:0 1px;
+    position:relative;
+  }
+  .anchor:hover{background-color:var(--highlight-active)}
+  .anchor.active{
+    background:linear-gradient(var(--highlight-active),var(--highlight-active));
+    background-size:100% 92%;background-position:0 90%;background-repeat:no-repeat;
+    border-bottom:2px solid var(--ochre);
+    box-shadow:0 0 0 3px var(--ochre-glow);
+  }
+  .anchor.resolved{
+    background:none;border-bottom:2px dotted var(--rule-strong);
+    color:var(--ink-soft);
+  }
+  .anchor .pin{
+    position:absolute;top:-9px;right:-13px;
+    font-size:9.5px;font-weight:700;font-family:'JetBrains Mono';
+    background:var(--ochre);color:#fff;border-radius:20px;padding:1px 5px;
+    box-shadow:0 1px 3px rgba(0,0,0,.2);
+  }
+  .anchor.resolved .pin{background:var(--ink-faint)}
+
+  /* floating comment button on selection */
+  .float-btn{
+    position:fixed;z-index:50;transform:translate(-50%,-130%);
+    background:var(--ink);color:var(--paper-2);
+    border:none;border-radius:9px;padding:8px 13px;font-size:13px;font-weight:600;
+    font-family:'Hanken Grotesk';cursor:pointer;display:none;align-items:center;gap:7px;
+    box-shadow:0 8px 22px rgba(0,0,0,.28);animation:pop .14s ease;
+  }
+  .float-btn::after{content:"";position:absolute;bottom:-5px;left:50%;transform:translateX(-50%) rotate(45deg);width:10px;height:10px;background:var(--ink)}
+  @keyframes pop{from{opacity:0;transform:translate(-50%,-110%) scale(.9)}to{opacity:1}}
+
+  /* ---------- comment sidebar ---------- */
+  .side{
+    background:var(--sidebar);color:var(--sidebar-ink);
+    display:flex;flex-direction:column;border-left:1px solid #000;
+  }
+  .side-head{
+    padding:16px 18px 14px;border-bottom:1px solid var(--sidebar-line);
+    display:flex;align-items:center;gap:10px;
+  }
+  .side-head h3{font-family:'Fraunces';font-weight:600;font-size:17px}
+  .side-head .count{font-size:12px;color:var(--sidebar-faint);font-family:'JetBrains Mono'}
+  .filter{margin-left:auto;display:flex;gap:4px;background:var(--sidebar-2);padding:3px;border-radius:8px}
+  .filter button{
+    background:none;border:none;color:var(--sidebar-faint);font-family:'Hanken Grotesk';
+    font-size:11.5px;font-weight:600;padding:4px 9px;border-radius:6px;cursor:pointer;
+  }
+  .filter button.on{background:var(--ochre);color:#fff}
+  .threads{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
+  .thread{
+    background:var(--sidebar-2);border:1px solid var(--sidebar-line);
+    border-radius:13px;padding:13px 14px;cursor:pointer;transition:.16s;
+  }
+  .thread:hover{border-color:#4d4636}
+  .thread.active{border-color:var(--ochre);box-shadow:0 0 0 2px var(--ochre-glow),0 10px 24px rgba(0,0,0,.3)}
+  .thread.resolved{opacity:.62}
+  .thread.resolved.collapsed .body,.thread.resolved.collapsed .reply-box{display:none}
+  .quote{
+    font-family:'Newsreader';font-style:italic;font-size:14px;color:var(--sidebar-faint);
+    border-left:2px solid var(--ochre);padding:1px 0 1px 10px;margin-bottom:11px;line-height:1.4;
+  }
+  .quote .qn{font-family:'JetBrains Mono';font-style:normal;font-size:10px;color:var(--ochre);display:block;margin-bottom:3px;letter-spacing:.08em}
+  .cmt{display:flex;gap:10px;margin-bottom:12px}
+  .cmt:last-of-type{margin-bottom:6px}
+  .cmt .av{
+    width:30px;height:30px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;
+    color:#fff;font-size:12px;font-weight:600;
+  }
+  .cmt .c-main{flex:1;min-width:0}
+  .cmt .c-top{display:flex;align-items:baseline;gap:8px;margin-bottom:2px}
+  .cmt .who{font-size:13px;font-weight:600;color:var(--sidebar-ink)}
+  .cmt .when{font-size:10.5px;color:var(--sidebar-faint);font-family:'JetBrains Mono'}
+  .cmt .edited{font-size:10px;color:var(--sidebar-faint);font-style:italic}
+  .cmt .text{font-size:13.5px;line-height:1.5;color:#d8d0bf}
+  .reply-box{display:flex;gap:8px;align-items:center;margin-top:4px}
+  .reply-box input{
+    flex:1;background:var(--sidebar);border:1px solid var(--sidebar-line);
+    border-radius:9px;padding:8px 11px;color:var(--sidebar-ink);font-family:'Hanken Grotesk';font-size:13px;
+  }
+  .reply-box input:focus{outline:none;border-color:var(--ochre)}
+  .reply-box input::placeholder{color:var(--sidebar-faint)}
+  .thread-foot{display:flex;align-items:center;gap:10px;margin-top:11px;padding-top:11px;border-top:1px solid var(--sidebar-line)}
+  .pill-btn{
+    background:none;border:1px solid var(--sidebar-line);color:var(--sidebar-faint);
+    font-family:'Hanken Grotesk';font-size:11.5px;font-weight:600;
+    padding:5px 11px;border-radius:7px;cursor:pointer;transition:.14s;display:flex;align-items:center;gap:6px;
+  }
+  .pill-btn:hover{border-color:var(--ochre);color:var(--sidebar-ink)}
+  .pill-btn.solve:hover{border-color:var(--green);color:#bcd49a}
+  .resolved-tag{
+    margin-left:auto;font-size:10.5px;font-weight:700;font-family:'JetBrains Mono';
+    color:#9fc06f;display:flex;align-items:center;gap:5px;
+  }
+  .ulid{margin-left:auto;font-family:'JetBrains Mono';font-size:9.5px;color:#534c3d}
+  .empty{color:var(--sidebar-faint);text-align:center;font-size:13px;padding:30px 10px;font-style:italic;font-family:'Newsreader'}
+
+  /* new comment composer */
+  .composer{border-color:var(--ochre)!important;box-shadow:0 0 0 2px var(--ochre-glow)}
+  .composer textarea{
+    width:100%;background:var(--sidebar);border:1px solid var(--sidebar-line);border-radius:9px;
+    padding:9px 11px;color:var(--sidebar-ink);font-family:'Hanken Grotesk';font-size:13.5px;
+    resize:none;min-height:62px;
+  }
+  .composer textarea:focus{outline:none;border-color:var(--ochre)}
+  .composer .row{display:flex;gap:8px;margin-top:9px;justify-content:flex-end}
+  .btn-primary{background:var(--ochre);color:#fff;border:none;border-radius:8px;padding:7px 15px;font-weight:600;font-size:12.5px;font-family:'Hanken Grotesk';cursor:pointer}
+  .btn-ghost{background:none;color:var(--sidebar-faint);border:1px solid var(--sidebar-line);border-radius:8px;padding:7px 13px;font-weight:600;font-size:12.5px;font-family:'Hanken Grotesk';cursor:pointer}
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:var(--paper-2);padding:11px 18px;border-radius:11px;
+    font-size:13px;display:flex;align-items:center;gap:10px;opacity:0;transition:.3s;z-index:80;
+    box-shadow:0 12px 30px rgba(0,0,0,.3);
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast code{font-family:'JetBrains Mono';font-size:11.5px;background:#3a352b;padding:2px 8px;border-radius:6px;color:var(--ochre-soft)}
+
+  ::-webkit-scrollbar{width:11px}
+  ::-webkit-scrollbar-thumb{background:var(--rule-strong);border-radius:10px;border:3px solid var(--paper)}
+  .side ::-webkit-scrollbar-thumb{background:#3a352b;border-color:var(--sidebar)}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="brand"><span class="glyph">¶</span> Gloss</div>
+    <div class="repo-pill">⌥ <b>acme/platform-docs</b></div>
+    <div class="branch">⎇ main</div>
+    <div class="spacer"></div>
+    <div class="sync"><span class="dot"></span> Synced · committing to <b style="color:var(--ink-soft)">main</b></div>
+    <div class="avatars">
+      <div class="av" style="background:#b07d34">AS</div>
+      <div class="av" style="background:#3f7d74">DK</div>
+      <div class="av" style="background:#a8584e">MR</div>
+    </div>
+  </header>
+
+  <!-- FILE TREE -->
+  <nav class="tree">
+    <h4>platform-docs · main</h4>
+    <div class="node dir"><span class="ic">▾</span> design</div>
+    <div class="indent">
+      <div class="node file active"><span class="ic">◆</span> review-protocol.md <span class="badge">3</span></div>
+      <div class="node file"><span class="ic">○</span> rendering.md</div>
+      <div class="node file"><span class="ic">○</span> auth-flow.md <span class="badge" style="background:#3f7d74">1</span></div>
+    </div>
+    <div class="node dir"><span class="ic">▾</span> rfcs</div>
+    <div class="indent">
+      <div class="node file"><span class="ic">○</span> 0001-anchoring.md</div>
+      <div class="node file"><span class="ic">○</span> 0002-checkpoints.md</div>
+    </div>
+    <div class="node dir"><span class="ic">▸</span> notes</div>
+    <div class="node file" style="margin-top:6px"><span class="ic">○</span> README.md</div>
+  </nav>
+
+  <!-- DOCUMENT -->
+  <main class="doc-wrap" id="docWrap">
+    <div class="doc-head">
+      <div class="inner">
+        <span class="crumb">design / <b>review-protocol.md</b></span>
+        <span class="commit-tag">anchored to <code>9f3c1ab</code></span>
+      </div>
+    </div>
+    <article class="doc" id="doc">
+      <h1>Collaborative Review Protocol for Markdown in Git</h1>
+      <div class="sub">Status: Draft · Last updated 2026-06-05 · Gloss</div>
+
+      <h2><span class="num">1</span>Problem</h2>
+      <p>AI tools produce design docs, specs, and plans as markdown, and that markdown lives in git like any other source. But markdown in git has no native review surface: when a doc is sent around for feedback, there is nowhere to leave a comment anchored to a specific sentence.</p>
+      <p>We want the Word review experience for markdown that lives in a git repo, <strong>without</strong> moving the document out of git and without locking the comments inside a proprietary database. Comments should be <span class="anchor" data-thread="t1">portable by default<span class="pin">1</span></span>, readable by any conforming tool.</p>
+
+      <h2><span class="num">2</span>Architecture</h2>
+      <p>The design follows Delta Lake's model, adapted for git. The markdown is immutable data; comments are an append-only action log stored beside it. Current state is derived by replaying the log, never stored as mutable state.</p>
+      <p>The key git adaptation is <span class="anchor resolved" data-thread="t2">ULID-per-file<span class="pin">✓</span></span> instead of Delta's sequential filenames. Each action is its own uniquely named file, so two reviewers committing at once never touch the same path.</p>
+
+      <h2><span class="num">3</span>Concurrency</h2>
+      <p>All reviewers work on the same branch. A comment action commits directly to it through a silent pull-rebase-push retry loop, never a conflict prompt. The trade-off is that <span class="anchor" data-thread="t3">every comment is a real commit on the working branch<span class="pin">2</span></span>, kept under <code class="inl">.gloss/</code> so it stays out of the document's own diff.</p>
+      <p>This serializes ref updates per branch — fine at review pace, but not built for hundreds of writes per second, and it shouldn't be.</p>
+
+      <h2><span class="num">4</span>Anchoring</h2>
+      <p>Anchors are captured against rendered text, not markdown source, using a quote plus a short prefix and suffix — the W3C Web Annotation TextQuoteSelector. On load the client fuzzy-matches to re-locate each span; anything that no longer matches is flagged as orphaned rather than silently dropped.</p>
+      <p style="color:var(--ink-faint);font-style:italic;font-family:'Newsreader'">Try it: select any sentence above to leave a comment.</p>
+    </article>
+  </main>
+
+  <!-- COMMENT SIDEBAR -->
+  <aside class="side">
+    <div class="side-head">
+      <h3>Comments</h3>
+      <span class="count" id="openCount">2 open</span>
+      <div class="filter">
+        <button class="on" data-f="all">All</button>
+        <button data-f="open">Open</button>
+        <button data-f="resolved">Resolved</button>
+      </div>
+    </div>
+    <div class="threads" id="threads"></div>
+  </aside>
+</div>
+
+<button class="float-btn" id="floatBtn">💬 Comment</button>
+<div class="toast" id="toast"></div>
+
+<script>
+const people = {
+  AS:{name:'Asha Rao',color:'#b07d34',initials:'AS'},
+  DK:{name:'Dev Kapoor',color:'#3f7d74',initials:'DK'},
+  MR:{name:'Mara Reyes',color:'#a8584e',initials:'MR'},
+  YOU:{name:'You',color:'#4a6fa5',initials:'YO'},
+};
+
+let threads = [
+  {
+    id:'t1', n:1, status:'open',
+    quote:'portable by default',
+    comments:[
+      {by:'AS', when:'2h ago', text:'Can we spell out what “portable” buys us vs just using GitHub PR review comments? Want this in the doc explicitly.'},
+      {by:'DK', when:'1h ago', text:'It means the comments live in the repo in an open format — no DB, any tool can read them. I’ll add a sentence.'},
+    ],
+  },
+  {
+    id:'t3', n:2, status:'open',
+    quote:'every comment is a real commit on the working branch',
+    comments:[
+      {by:'MR', when:'42m ago', text:'Won’t this make git log unusable? Hundreds of comment commits on main worries me.'},
+      {by:'AS', when:'30m ago', text:'They’re namespaced under .gloss/ so they never touch the doc’s diff. It’s noisy in log but it’s a free audit trail. Acceptable for v1.'},
+    ],
+  },
+  {
+    id:'t2', n:'✓', status:'resolved',
+    quote:'ULID-per-file',
+    comments:[
+      {by:'DK', when:'yesterday', text:'Confirmed ULIDs are time-sortable so we recover ordering for free. Nice.'},
+      {by:'AS', when:'yesterday', text:'Resolving — this is settled.'},
+    ],
+  },
+];
+
+let activeThread = null;
+let filter = 'all';
+let pendingAnchor = null;
+
+const $ = s => document.querySelector(s);
+const threadsEl = $('#threads');
+
+function newUlid(){
+  const t = Date.now().toString(36).toUpperCase();
+  let r=''; for(let i=0;i<10;i++) r+='0123456789ABCDEFGHJKMNPQRSTVWXYZ'[Math.floor(Math.random()*32)];
+  return '01'+t+r;
+}
+
+function render(){
+  threadsEl.innerHTML='';
+  const visible = threads.filter(t=> filter==='all' || t.status===filter);
+  if(!visible.length){ threadsEl.innerHTML='<div class="empty">No comments here yet.</div>'; }
+  visible.forEach(t=>{
+    const el=document.createElement('div');
+    el.className='thread'+(t.status==='resolved'?' resolved collapsed':'')+(activeThread===t.id?' active':'');
+    el.dataset.thread=t.id;
+
+    let cmts = t.comments.map(c=>{
+      const p=people[c.by];
+      return `<div class="cmt">
+        <div class="av" style="background:${p.color}">${p.initials}</div>
+        <div class="c-main">
+          <div class="c-top"><span class="who">${p.name}</span><span class="when">${c.when}</span>${c.edited?'<span class="edited">· edited</span>':''}</div>
+          <div class="text">${c.text}</div>
+        </div></div>`;
+    }).join('');
+
+    const foot = t.status==='resolved'
+      ? `<div class="thread-foot"><button class="pill-btn" data-act="reopen">↺ Reopen</button><span class="resolved-tag">✓ Resolved</span></div>`
+      : `<div class="thread-foot"><button class="pill-btn solve" data-act="resolve">✓ Resolve</button><span class="ulid">${newUlid().slice(0,12)}…</span></div>`;
+
+    el.innerHTML=`
+      <div class="quote"><span class="qn">¶ ANCHOR ${typeof t.n==='number'?'#'+t.n:''}</span>${t.quote}</div>
+      <div class="body">${cmts}
+        ${t.status!=='resolved'?`<div class="reply-box"><input placeholder="Reply…" data-reply="${t.id}"><button class="pill-btn" data-act="send">Send</button></div>`:''}
+      </div>
+      ${foot}`;
+    threadsEl.appendChild(el);
+  });
+  const openN = threads.filter(t=>t.status==='open').length;
+  $('#openCount').textContent = openN+' open';
+  syncAnchors();
+}
+
+function syncAnchors(){
+  document.querySelectorAll('.anchor').forEach(a=>{
+    const t = threads.find(x=>x.id===a.dataset.thread);
+    a.classList.toggle('active', activeThread===a.dataset.thread && (!t||t.status!=='resolved'));
+  });
+}
+
+function setActive(id){
+  activeThread = id;
+  render();
+  const card = threadsEl.querySelector(`[data-thread="${id}"]`);
+  if(card) card.scrollIntoView({behavior:'smooth',block:'center'});
+  const anc = document.querySelector(`.anchor[data-thread="${id}"]`);
+  if(anc) anc.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+// click anchors in the doc
+document.querySelectorAll('.anchor').forEach(a=>{
+  a.addEventListener('click',e=>{e.stopPropagation();setActive(a.dataset.thread);});
+});
+
+// click threads + actions
+threadsEl.addEventListener('click',e=>{
+  const card = e.target.closest('.thread');
+  const act = e.target.dataset.act;
+  if(act){
+    e.stopPropagation();
+    const id = card.dataset.thread;
+    const t = threads.find(x=>x.id===id);
+    if(act==='resolve'){ t.status='resolved'; toast('Thread resolved','resolve_thread'); }
+    if(act==='reopen'){ t.status='open'; toast('Thread reopened','reopen_thread'); }
+    if(act==='send'){
+      const inp = card.querySelector('input[data-reply]');
+      if(inp.value.trim()){ t.comments.push({by:'YOU',when:'just now',text:inp.value.trim()}); toast('Reply committed','add_comment'); }
+    }
+    render(); return;
+  }
+  if(card) setActive(card.dataset.thread);
+});
+
+// enter to send reply
+threadsEl.addEventListener('keydown',e=>{
+  if(e.key==='Enter' && e.target.dataset.reply){
+    const t = threads.find(x=>x.id===e.target.dataset.reply);
+    if(e.target.value.trim()){ t.comments.push({by:'YOU',when:'just now',text:e.target.value.trim()}); toast('Reply committed','add_comment'); render(); }
+  }
+});
+
+// ----- select-to-comment -----
+const floatBtn = $('#floatBtn');
+let savedQuote = '';
+document.addEventListener('mouseup',e=>{
+  if(e.target.closest('.float-btn')) return;
+  setTimeout(()=>{
+    const sel = window.getSelection();
+    const txt = sel.toString().trim();
+    if(txt.length>2 && sel.anchorNode && $('#doc').contains(sel.anchorNode)){
+      const r = sel.getRangeAt(0).getBoundingClientRect();
+      floatBtn.style.display='flex';
+      floatBtn.style.left = (r.left + r.width/2)+'px';
+      floatBtn.style.top = r.top+'px';
+      savedQuote = txt.length>90 ? txt.slice(0,90)+'…' : txt;
+    } else if(!e.target.closest('.thread')){
+      floatBtn.style.display='none';
+    }
+  },10);
+});
+
+floatBtn.addEventListener('click',()=>{
+  floatBtn.style.display='none';
+  $('.filter button[data-f="all"]').click();
+  // build a composer thread at top
+  const tmp = document.createElement('div');
+  tmp.className='thread active composer';
+  tmp.innerHTML=`
+    <div class="quote"><span class="qn">¶ NEW ANCHOR · 9f3c1ab</span>${savedQuote}</div>
+    <textarea placeholder="Leave a comment…" id="composerText"></textarea>
+    <div class="row">
+      <button class="btn-ghost" id="cancelC">Cancel</button>
+      <button class="btn-primary" id="postC">Comment</button>
+    </div>`;
+  threadsEl.prepend(tmp);
+  tmp.scrollIntoView({behavior:'smooth',block:'start'});
+  const ta = tmp.querySelector('#composerText'); ta.focus();
+  tmp.querySelector('#cancelC').onclick=()=>render();
+  tmp.querySelector('#postC').onclick=()=>{
+    if(!ta.value.trim()){ render(); return; }
+    const id='t'+newUlid().slice(0,6);
+    threads.unshift({id, n:threads.length+1, status:'open', quote:savedQuote,
+      comments:[{by:'YOU',when:'just now',text:ta.value.trim()}]});
+    activeThread=id;
+    toast('Thread created · committed to main','create_thread');
+    render();
+  };
+  window.getSelection().removeAllRanges();
+});
+
+// filters
+document.querySelectorAll('.filter button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.filter button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); filter=b.dataset.f; render();
+  });
+});
+
+// toast
+let toastTimer;
+function toast(msg,action){
+  const t=$('#toast');
+  t.innerHTML=`✓ ${msg} <code>${action}.json · ${newUlid().slice(0,10)}</code>`;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),2600);
+}
+
+render();
+</script>
+</body>
+</html>

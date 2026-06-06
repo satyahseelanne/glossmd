@@ -1,0 +1,18 @@
+{
+  "name": "@gloss/core",
+  "version": "0.1.0",
+  "description": "Portable append-only review-comment protocol for markdown in git. The protocol core: ULIDs, actions, deterministic reducer, and checkpoint folding.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "test": "node --test",
+    "demo": "node demo.js"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  }
+}

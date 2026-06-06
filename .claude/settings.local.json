@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(git init -b main && git add -A && git status --short | Select-Object -First 60; \"---TOTAL STAGED---\"; \\(git diff --cached --name-only | Measure-Object -Line\\).Lines)"
+    ]
+  }
+}
