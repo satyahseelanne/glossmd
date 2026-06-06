@@ -1,0 +1,17 @@
+{
+  "v": 1,
+  "id": "01HXTC1C00000000000000T002",
+  "type": "create_thread",
+  "actor": { "id": "u_dev", "name": "Dev Kapoor" },
+  "ts": "2026-06-04T10:20:00.000Z",
+  "thread_id": "01HXTC1C00000000000000T002",
+  "anchor": {
+    "commit": "seed",
+    "file": "design/design.md",
+    "quote": "ULID-per-file",
+    "prefix": "",
+    "suffix": "",
+    "textPosition": { "start": 0, "end": 0 }
+  },
+  "body": "Confirmed ULIDs are time-sortable so we recover ordering for free. Nice."
+}

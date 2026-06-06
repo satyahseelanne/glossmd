@@ -1,0 +1,10 @@
+{
+  "v": 1,
+  "id": "01HXTC1B0000000000000T3RA1",
+  "type": "add_comment",
+  "actor": { "id": "u_asha", "name": "Asha Rao" },
+  "ts": "2026-06-04T10:15:00.000Z",
+  "thread_id": "01HXTC1B00000000000000T003",
+  "body": "They're namespaced under .gloss/ so they never touch the doc's diff. It's noisy in git log but it's a free audit trail. Acceptable for v1.",
+  "reply_to": null
+}

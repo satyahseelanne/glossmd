@@ -1,0 +1,17 @@
+{
+  "v": 1,
+  "id": "01HXTC1A00000000000000T001",
+  "type": "create_thread",
+  "actor": { "id": "u_asha", "name": "Asha Rao" },
+  "ts": "2026-06-04T10:00:00.000Z",
+  "thread_id": "01HXTC1A00000000000000T001",
+  "anchor": {
+    "commit": "seed",
+    "file": "design/design.md",
+    "quote": "portable by default",
+    "prefix": "",
+    "suffix": "",
+    "textPosition": { "start": 0, "end": 0 }
+  },
+  "body": "Can we spell out what 'portable' buys us vs just using GitHub PR review comments? Want this in the doc explicitly."
+}

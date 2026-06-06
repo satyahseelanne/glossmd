@@ -1,0 +1,10 @@
+{
+  "v": 1,
+  "id": "01HXTC1A0000000000000T1RA1",
+  "type": "add_comment",
+  "actor": { "id": "u_dev", "name": "Dev Kapoor" },
+  "ts": "2026-06-04T10:05:00.000Z",
+  "thread_id": "01HXTC1A00000000000000T001",
+  "body": "It means the comments live in the repo in an open format — no DB, any tool can read them. I'll add a sentence.",
+  "reply_to": null
+}

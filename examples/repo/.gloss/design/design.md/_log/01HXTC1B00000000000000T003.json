@@ -1,0 +1,17 @@
+{
+  "v": 1,
+  "id": "01HXTC1B00000000000000T003",
+  "type": "create_thread",
+  "actor": { "id": "u_mara", "name": "Mara Reyes" },
+  "ts": "2026-06-04T10:10:00.000Z",
+  "thread_id": "01HXTC1B00000000000000T003",
+  "anchor": {
+    "commit": "seed",
+    "file": "design/design.md",
+    "quote": "every comment is a real commit on the working branch",
+    "prefix": "",
+    "suffix": "",
+    "textPosition": { "start": 0, "end": 0 }
+  },
+  "body": "Won't this make git log unusable? Hundreds of comment commits on main worries me."
+}

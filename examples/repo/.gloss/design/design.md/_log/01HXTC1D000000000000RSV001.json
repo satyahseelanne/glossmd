@@ -1,0 +1,8 @@
+{
+  "v": 1,
+  "id": "01HXTC1D000000000000RSV001",
+  "type": "resolve_thread",
+  "actor": { "id": "u_asha", "name": "Asha Rao" },
+  "ts": "2026-06-04T10:30:00.000Z",
+  "thread_id": "01HXTC1C00000000000000T002"
+}

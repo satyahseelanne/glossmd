@@ -17,9 +17,9 @@
 // example repo, so the surface is exercisable without a token or network.
 
 import http from "node:http";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
 import { MemoryHost, asReadHost } from "@gloss/git";
 import { commitAction } from "@gloss/git";
 import { readReviewFiles } from "@gloss/git";
@@ -29,15 +29,36 @@ const PORT = process.env.PORT || 8787;
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // --- host wiring ----------------------------------------------------------
-// In dev: one in-memory host seeded with the example doc. In prod: construct a
-// GitHubHost per request from the reviewer's stored OAuth token (omitted here).
+// In dev: one in-memory host seeded with the example repo, walked recursively
+// so the file tree is meaningful and any pre-existing .gloss/ log is loaded
+// alongside the docs. In prod: construct a GitHubHost per request from the
+// reviewer's stored OAuth token (omitted here).
 function devHost() {
   const host = new MemoryHost();
   const repoDir = join(__dirname, "../../../examples/repo");
-  let md = "# Example design doc\n";
-  try { md = readFileSync(join(repoDir, "design/design.md"), "utf-8"); } catch {}
-  host.init("main", { "design/design.md": md });
+  const files = {};
+  try {
+    for (const abs of walk(repoDir)) {
+      const rel = relative(repoDir, abs).split(sep).join("/");
+      files[rel] = readFileSync(abs, "utf-8");
+    }
+  } catch (err) {
+    console.warn("devHost: could not read examples/repo —", err.message);
+  }
+  if (Object.keys(files).length === 0) files["design/design.md"] = "# Example design doc\n";
+  host.init("main", files);
+  console.log(`devHost: seeded ${Object.keys(files).length} files from examples/repo`);
   return host;
+}
+
+// Recursively yield every file path under root (skip nothing — .gloss/ included).
+function* walk(root) {
+  for (const name of readdirSync(root)) {
+    const full = join(root, name);
+    const st = statSync(full);
+    if (st.isDirectory()) yield* walk(full);
+    else if (st.isFile()) yield full;
+  }
 }
 const host = DEV ? devHost() : null;
 const DEV_USER = { id: "u_dev", name: "Dev User", email: "dev@example.com" };
@@ -66,7 +87,12 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/tree") {
       const branch = q.get("branch") || "main";
       const files = await host.snapshot(branch);
-      return json(res, 200, { branch, paths: Object.keys(files).filter((p) => !p.startsWith(".gloss/")) });
+      // Only surface doc-like files; any path with a `.gloss/` segment is
+      // review metadata and lives behind /reviews instead.
+      const paths = Object.keys(files).filter(
+        (p) => p.endsWith(".md") && !p.split("/").includes(".gloss"),
+      );
+      return json(res, 200, { branch, paths });
     }
 
     if (req.method === "GET" && url.pathname === "/file") {

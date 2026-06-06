@@ -1,0 +1,10 @@
+{
+  "v": 1,
+  "id": "01HXTC1C0000000000000T2RA1",
+  "type": "add_comment",
+  "actor": { "id": "u_asha", "name": "Asha Rao" },
+  "ts": "2026-06-04T10:25:00.000Z",
+  "thread_id": "01HXTC1C00000000000000T002",
+  "body": "Resolving — this is settled.",
+  "reply_to": null
+}
