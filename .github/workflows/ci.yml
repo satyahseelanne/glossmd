@@ -1,0 +1,54 @@
+# CI — runs on every push and pull request.
+# No Azure credentials needed: install, test, build the web app, and confirm the
+# Docker image builds. This is the gate that protects `main`; CD (deploy.yml)
+# runs only after this is green on main.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel an in-progress run if the same ref is pushed again.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test & build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install (workspaces)
+        run: npm ci
+
+      - name: Unit tests (core, anchor, git, server)
+        run: npm test
+
+      - name: Build web app
+        run: npm run build --workspace @gloss/web
+
+  docker:
+    name: Docker image builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build the production image exactly as the deploy does (multi-stage:
+      # build the SPA, then the Node server). No push — this just proves the
+      # Dockerfile is valid on every change.
+      - name: Build image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
