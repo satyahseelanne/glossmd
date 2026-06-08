@@ -9,7 +9,7 @@
 // builders, POSTs it through the generic api.postAction, then re-fetches and
 // re-reduces. We never mutate locally — the reducer is the only source of truth.
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ulid,
   load,
@@ -21,6 +21,7 @@ import {
   reopenThread,
 } from "@gloss/core";
 import { api } from "./api.js";
+import { readDeepLink, writeDeepLink, buildShareUrl } from "./util/deeplink.js";
 import TopBar from "./components/TopBar.jsx";
 import Tree from "./components/Tree.jsx";
 import DocumentPane from "./components/DocumentPane.jsx";
@@ -55,6 +56,11 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [editRequest, setEditRequest] = useState(0); // nonce: ask the doc pane to open in Edit mode
 
+  // Deep-link target read from the URL on first load (repo/branch/path/thread).
+  // Consumed as the async data arrives, then cleared so it doesn't override the
+  // user's later manual navigation.
+  const pending = useRef(readDeepLink());
+
   // The { owner, repo, branch } context passed to every api call.
   const ctx = useMemo(
     () => ({ owner: selRepo?.owner ?? undefined, repo: selRepo?.repo ?? undefined, branch }),
@@ -79,9 +85,11 @@ export default function App() {
     if (!authReady || !me) return;
     api.repos().then(({ repos }) => {
       setRepos(repos);
-      // Default to the server's configured repo if present, else the first.
+      // Priority: a repo named in the deep link, else the server's configured
+      // repo, else the first the reviewer can access.
+      const fromLink = pending.current.slug && repos.find((r) => r.slug === pending.current.slug);
       const fromInfo = repos.find((r) => r.slug === repoInfo.slug);
-      setSelRepo(fromInfo ?? repos[0] ?? null);
+      setSelRepo(fromLink || fromInfo || repos[0] || null);
     }).catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, me]);
@@ -91,8 +99,13 @@ export default function App() {
     if (!selRepo) return;
     api.branches({ owner: selRepo.owner, repo: selRepo.repo }).then(({ branches }) => {
       setBranches(branches);
-      // Keep current branch if it exists on this repo, else the repo's default.
-      setBranch((b) => (branches.includes(b) ? b : selRepo.default_branch || branches[0] || DEFAULT_BRANCH));
+      // Prefer a branch from the deep link if it exists on this repo; else keep
+      // the current one if valid; else the repo's default.
+      const linked = pending.current.branch;
+      setBranch((b) => {
+        if (linked && branches.includes(linked)) return linked;
+        return branches.includes(b) ? b : selRepo.default_branch || branches[0] || DEFAULT_BRANCH;
+      });
     }).catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selRepo]);
@@ -106,7 +119,12 @@ export default function App() {
     api.tree(ctx).then((t) => {
       const mds = (t.paths ?? []).filter((p) => p.endsWith(".md"));
       setTree(mds);
-      setDocPath(mds.find((p) => /design\.md$/.test(p)) ?? mds[0] ?? null);
+      // Prefer the deep-linked document if it's on this branch; else a design.md;
+      // else the first doc. The path is consumed here so manual nav takes over.
+      const linked = pending.current.path && mds.includes(pending.current.path) ? pending.current.path : null;
+      if (pending.current.path && !linked) pending.current.path = undefined; // not here
+      setDocPath(linked ?? mds.find((p) => /design\.md$/.test(p)) ?? mds[0] ?? null);
+      if (linked) pending.current.path = undefined; // consumed
     }).catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, me, selRepo, branch]);
@@ -168,6 +186,33 @@ export default function App() {
     }
     return Array.from(m.values());
   }, [reduced]);
+
+  // Mirror the current view into the URL so it can be copied and shared. Runs on
+  // every selection change; replaceState keeps it out of the back-button history.
+  useEffect(() => {
+    if (!selRepo) return;
+    writeDeepLink({ slug: selRepo.slug, branch, path: docPath ?? undefined, thread: activeThread ?? undefined });
+  }, [selRepo, branch, docPath, activeThread]);
+
+  // Consume a deep-linked thread once the doc's threads are loaded: select it and
+  // scroll it into view. Cleared after so it fires only once.
+  useEffect(() => {
+    const t = pending.current.thread;
+    if (!t || threads.length === 0) return;
+    if (threads.some((x) => x.thread_id === t)) {
+      setActiveThread(t);
+      setFocus({ pane: "doc", id: t, n: Date.now() });
+    }
+    pending.current.thread = undefined;
+  }, [threads]);
+
+  // Absolute, shareable URL for the current doc (and active thread, if any).
+  const shareUrl = useMemo(
+    () => (selRepo && docPath
+      ? buildShareUrl({ slug: selRepo.slug, branch, path: docPath, thread: activeThread ?? undefined })
+      : null),
+    [selRepo, branch, docPath, activeThread],
+  );
 
   // --- one post-and-refresh helper for every action type ---
   async function postAction(action, label) {
@@ -348,6 +393,7 @@ export default function App() {
           focus={focus}
           canEdit={!!me}
           editRequest={editRequest}
+          shareUrl={shareUrl}
           onSelectThread={selectFromDoc}
           onStartThread={startThread}
           onSaveDoc={saveDoc}

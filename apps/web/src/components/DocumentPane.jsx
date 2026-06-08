@@ -29,6 +29,7 @@ export default function DocumentPane({
   focus,
   canEdit,
   editRequest,
+  shareUrl,
   onSelectThread,
   onStartThread,
   onSaveDoc,
@@ -39,6 +40,7 @@ export default function DocumentPane({
   const [mode, setMode] = useState("read");        // "read" | "edit"
   const [editContent, setEditContent] = useState(""); // markdown buffer while editing
   const [saving, setSaving] = useState(false);
+  const [copied, setCopied] = useState(false);     // brief "Copied!" feedback
   const handledEditReq = useRef(0);                // last editRequest nonce we acted on
 
   const html = useMemo(() => (file ? marked.parse(file.content) : ""), [file]);
@@ -79,6 +81,25 @@ export default function DocumentPane({
     } finally {
       setSaving(false);
     }
+  }
+
+  // Copy the shareable deep link (doc + active thread) to the clipboard, with a
+  // brief "Copied!" confirmation. Falls back to a temporary textarea where the
+  // async clipboard API isn't available.
+  async function copyLink() {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = shareUrl;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); } catch { /* ignore */ }
+      document.body.removeChild(ta);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
   }
 
   // Decorate inline anchors after every render of the doc html or threads change.
@@ -177,6 +198,15 @@ export default function DocumentPane({
           <span className="commit-tag">
             anchored to <code>{(file?.commit ?? "…").slice(0, 7)}</code>
           </span>
+          {file && shareUrl && mode === "read" && (
+            <button
+              className="doc-edit-btn"
+              onClick={copyLink}
+              title={activeThread ? "Copy a link to this comment" : "Copy a link to this document"}
+            >
+              {copied ? "✓ Copied" : "🔗 Copy link"}
+            </button>
+          )}
           {file && canEdit && mode === "read" && (
             <button className="doc-edit-btn" onClick={enterEdit} title="Edit this document">
               ✎ Edit
