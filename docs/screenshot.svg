@@ -1,0 +1,166 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 620" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c8902f"/>
+      <stop offset="1" stop-color="#8a5d22"/>
+    </linearGradient>
+    <clipPath id="round"><rect x="0" y="0" width="1000" height="620" rx="10"/></clipPath>
+  </defs>
+
+  <g clip-path="url(#round)">
+    <!-- page background -->
+    <rect x="0" y="0" width="1000" height="620" fill="#f7f3ea"/>
+
+    <!-- ============ TOP BAR ============ -->
+    <rect x="0" y="0" width="1000" height="48" fill="#f7f3ea"/>
+    <line x1="0" y1="48" x2="1000" y2="48" stroke="#e4dcc9" stroke-width="1"/>
+
+    <rect x="16" y="11" width="26" height="26" rx="6" fill="url(#tile)"/>
+    <g fill="#f7f3ea">
+      <rect x="21.5" y="17.4" width="10.6" height="1.95" rx="1" opacity="0.65"/>
+      <rect x="21.5" y="22.5" width="8.5" height="2.1" rx="1"/>
+      <rect x="21.5" y="27.6" width="6.9" height="1.95" rx="1" opacity="0.65"/>
+    </g>
+    <text x="52" y="29" font-size="15" font-weight="700" fill="#23201a">Gloss</text>
+
+    <rect x="100" y="14" width="112" height="20" rx="10" fill="#eee6d3"/>
+    <text x="112" y="28" font-size="11.5" fill="#5a5240">examples/repo</text>
+
+    <rect x="222" y="14" width="62" height="20" rx="10" fill="#eee6d3"/>
+    <text x="232" y="28" font-size="11.5" fill="#5a5240">⎇ main</text>
+
+    <circle cx="628" cy="24" r="3.5" fill="#3f8f5c"/>
+    <text x="639" y="28" font-size="11.5" fill="#7a7360">Synced · committing to <tspan font-weight="600" fill="#4a4534">main</tspan></text>
+
+    <circle cx="898" cy="24" r="13" fill="#c8902f"/>
+    <text x="898" y="28" font-size="10" font-weight="700" fill="#fff" text-anchor="middle">AR</text>
+    <circle cx="928" cy="24" r="13" fill="#6d8f6b"/>
+    <text x="928" y="28" font-size="10" font-weight="700" fill="#fff" text-anchor="middle">DK</text>
+    <circle cx="958" cy="24" r="13" fill="#7d6ba0"/>
+    <text x="958" y="28" font-size="10" font-weight="700" fill="#fff" text-anchor="middle">MR</text>
+
+    <!-- ============ LEFT TREE ============ -->
+    <rect x="0" y="48" width="216" height="572" fill="#f7f3ea"/>
+    <line x1="216" y1="48" x2="216" y2="620" stroke="#e4dcc9" stroke-width="1"/>
+
+    <text x="18" y="76" font-size="10.5" font-weight="700" letter-spacing="0.5" fill="#8a8368">REPO · MAIN</text>
+    <rect x="160" y="63" width="42" height="18" rx="9" fill="#eee6d3"/>
+    <text x="181" y="76" font-size="10" fill="#5a5240" text-anchor="middle">+ NEW</text>
+
+    <text x="18" y="104" font-size="12.5" fill="#4a4534">▾ design</text>
+    <text x="30" y="128" font-size="12" fill="#6b6552">○ auth-flow.md</text>
+    <rect x="18" y="140" width="186" height="22" rx="5" fill="#23201a"/>
+    <text x="30" y="155" font-size="12" font-weight="600" fill="#f7f3ea">◆ design.md</text>
+    <circle cx="192" cy="151" r="8" fill="#c8902f"/>
+    <text x="192" y="154.5" font-size="9.5" font-weight="700" fill="#fff" text-anchor="middle">2</text>
+    <text x="30" y="180" font-size="12" fill="#6b6552">○ rendering.md</text>
+
+    <text x="18" y="208" font-size="12.5" fill="#4a4534">▾ rfcs</text>
+    <text x="30" y="232" font-size="12" fill="#6b6552">○ 0001-anchoring.md</text>
+    <text x="30" y="254" font-size="12" fill="#6b6552">○ 0002-checkpoints.md</text>
+    <text x="18" y="278" font-size="12" fill="#6b6552">○ README.md</text>
+
+    <!-- ============ DOCUMENT PANE ============ -->
+    <rect x="216" y="48" width="380" height="572" fill="#f7f3ea"/>
+
+    <text x="240" y="80" font-size="11" fill="#8a8368">design / <tspan fill="#4a4534" font-weight="600">design.md</tspan></text>
+    <text x="240" y="98" font-size="10.5" fill="#8a8368">anchored to</text>
+    <rect x="316" y="88" width="58" height="16" rx="4" fill="#eee6d3"/>
+    <text x="345" y="100" font-size="9.5" font-family="monospace" fill="#5a5240" text-anchor="middle">ba2e088</text>
+    <rect x="524" y="86" width="72" height="20" rx="5" fill="#eee6d3"/>
+    <text x="560" y="100" font-size="10" fill="#5a5240" text-anchor="middle">Copy link</text>
+
+    <text x="240" y="140" font-size="21" font-weight="700" fill="#23201a">Collaborative Review</text>
+    <text x="240" y="164" font-size="21" font-weight="700" fill="#23201a">Protocol for Markdown</text>
+    <text x="240" y="188" font-size="21" font-weight="700" fill="#23201a">in Git</text>
+    <text x="240" y="210" font-size="11.5" fill="#8a8368">Status: Draft · Gloss</text>
+
+    <text x="240" y="240" font-size="14" font-weight="700" fill="#23201a">1. Problem</text>
+    <g fill="#4a4534" font-size="11.5">
+      <text x="240" y="262">AI tools produce design docs, specs, and plans as</text>
+      <text x="240" y="280">markdown, and that markdown lives in git like any</text>
+      <text x="240" y="298">other source. But markdown in git has no native</text>
+      <text x="240" y="316">review surface: when a doc is sent around for</text>
+      <text x="240" y="334">feedback, there is nowhere to leave a comment</text>
+      <text x="240" y="352">anchored to a specific sentence.</text>
+    </g>
+
+    <rect x="240" y="368" width="330" height="15" fill="#f0dcb4" opacity="0.7"/>
+    <g fill="#4a4534" font-size="11.5">
+      <text x="240" y="380">We want the Word review experience for markdown</text>
+      <text x="240" y="398">that lives in a git repo, without moving the document</text>
+      <text x="240" y="416">out of git and without locking the comments inside a</text>
+      <text x="240" y="434">proprietary database. Comments should be</text>
+      <text x="240" y="452" font-weight="700">portable by default, readable by any conforming tool.</text>
+    </g>
+
+    <text x="240" y="484" font-size="14" font-weight="700" fill="#23201a">2. Architecture</text>
+    <g fill="#4a4534" font-size="11.5">
+      <text x="240" y="506">The design follows Delta Lake's model, adapted for</text>
+      <text x="240" y="524">git. The markdown is immutable data; comments are</text>
+      <text x="240" y="542">an append-only action log stored beside it.</text>
+    </g>
+
+    <!-- ============ COMMENTS SIDEBAR ============ -->
+    <rect x="596" y="48" width="404" height="572" fill="#211e18"/>
+
+    <text x="620" y="82" font-size="15" font-weight="700" fill="#ece5d6">Comments</text>
+    <text x="702" y="82" font-size="11.5" fill="#a59c89">2 open</text>
+    <rect x="800" y="66" width="34" height="20" rx="10" fill="#c8902f"/>
+    <text x="817" y="80" font-size="9.5" font-weight="700" fill="#211e18" text-anchor="middle">All</text>
+    <text x="850" y="80" font-size="10.5" fill="#a59c89">Open</text>
+    <text x="895" y="80" font-size="10.5" fill="#a59c89">Resolved</text>
+
+    <!-- thread 1 -->
+    <rect x="612" y="106" width="376" height="150" rx="6" fill="#2a261e" stroke="#3a352b" stroke-width="1"/>
+    <rect x="612" y="106" width="3" height="150" fill="#b07d34"/>
+    <text x="628" y="126" font-size="9.5" font-weight="700" letter-spacing="0.5" fill="#b07d34">NOTE 1</text>
+    <text x="628" y="142" font-size="11" font-style="italic" fill="#a59c89">"portable by default"</text>
+
+    <circle cx="636" cy="162" r="10" fill="#c8902f"/>
+    <text x="636" y="165.5" font-size="9" font-weight="700" fill="#fff" text-anchor="middle">AR</text>
+    <text x="652" y="159" font-size="11" font-weight="600" fill="#ece5d6">Asha Rao</text>
+    <text x="722" y="159" font-size="9.5" fill="#7d7563">6/4/2026</text>
+    <text x="652" y="174" font-size="10.5" fill="#c7c0ac">Can we spell out what 'portable' buys us</text>
+    <text x="652" y="188" font-size="10.5" fill="#c7c0ac">vs GitHub PR comments?</text>
+
+    <circle cx="636" cy="206" r="10" fill="#6d8f6b"/>
+    <text x="636" y="209.5" font-size="9" font-weight="700" fill="#fff" text-anchor="middle">DK</text>
+    <text x="652" y="203" font-size="11" font-weight="600" fill="#ece5d6">Dev Kapoor</text>
+    <text x="726" y="203" font-size="9.5" fill="#7d7563">6/4/2026</text>
+    <text x="652" y="218" font-size="10.5" fill="#c7c0ac">Comments live in the repo, open format —</text>
+    <text x="652" y="232" font-size="10.5" fill="#c7c0ac">no DB, any tool can read them.</text>
+
+    <text x="628" y="248" font-size="10.5" fill="#7fae7d">✓ Resolve</text>
+
+    <!-- thread 2 -->
+    <rect x="612" y="266" width="376" height="150" rx="6" fill="#2a261e" stroke="#3a352b" stroke-width="1"/>
+    <rect x="612" y="266" width="3" height="150" fill="#b07d34"/>
+    <text x="628" y="286" font-size="9.5" font-weight="700" letter-spacing="0.5" fill="#b07d34">NOTE 2</text>
+    <text x="628" y="302" font-size="11" font-style="italic" fill="#a59c89">"every comment is a real commit"</text>
+
+    <circle cx="636" cy="322" r="10" fill="#7d6ba0"/>
+    <text x="636" y="325.5" font-size="9" font-weight="700" fill="#fff" text-anchor="middle">MR</text>
+    <text x="652" y="319" font-size="11" font-weight="600" fill="#ece5d6">Mara Reyes</text>
+    <text x="722" y="319" font-size="9.5" fill="#7d7563">6/4/2026</text>
+    <text x="652" y="334" font-size="10.5" fill="#c7c0ac">Won't this make git log noisy? Hundreds</text>
+    <text x="652" y="348" font-size="10.5" fill="#c7c0ac">of commits on main worries me.</text>
+
+    <circle cx="636" cy="366" r="10" fill="#c8902f"/>
+    <text x="636" y="369.5" font-size="9" font-weight="700" fill="#fff" text-anchor="middle">AR</text>
+    <text x="652" y="363" font-size="11" font-weight="600" fill="#ece5d6">Asha Rao</text>
+    <text x="722" y="363" font-size="9.5" fill="#7d7563">6/4/2026</text>
+    <text x="652" y="378" font-size="10.5" fill="#c7c0ac">Namespaced under .gloss/ — never touch</text>
+    <text x="652" y="392" font-size="10.5" fill="#c7c0ac">the doc's diff. Acceptable for v1.</text>
+
+    <text x="628" y="408" font-size="10.5" fill="#7fae7d">✓ Resolve</text>
+
+    <!-- resolved thread, collapsed -->
+    <rect x="612" y="434" width="376" height="46" rx="6" fill="#242019" stroke="#3a352b" stroke-width="1"/>
+    <rect x="612" y="434" width="3" height="46" fill="#5c8a5a"/>
+    <text x="628" y="452" font-size="9.5" font-weight="700" letter-spacing="0.5" fill="#7fae7d">✓ RESOLVED</text>
+    <text x="628" y="468" font-size="10.5" font-style="italic" fill="#a59c89">"ULID-per-file"</text>
+  </g>
+
+  <rect x="0.5" y="0.5" width="999" height="619" rx="10" fill="none" stroke="#e4dcc9" stroke-width="1"/>
+</svg>
