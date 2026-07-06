@@ -13,10 +13,14 @@
 # They are identifiers, not secrets. The workflow no-ops until AZURE_CLIENT_ID is
 # present, so merging this file changes nothing until you're ready.
 #
-# GLOSS_OAUTH_CLIENT_SECRET must also exist as a repo *secret* (Settings →
-# Secrets and variables → Actions → Secrets) — the Bicep template silently
-# falls back to a placeholder if it's missing, which would overwrite the real
-# OAuth secret on the running app.
+# This workflow only ever runs `azd deploy` (build + push image + roll the
+# Container App) — never `azd provision`. `azd provision` re-runs the Bicep
+# template, which is subscription-scoped (it creates the resource group
+# itself), so it needs subscription-level permission; this identity is
+# deliberately scoped to Contributor on rg-gloss only. Re-provisioning from CI
+# would mean widening that back to the whole subscription, which isn't worth
+# it for what should just be "build and roll out the new image". If the infra
+# itself ever needs to change, run `azd provision` locally instead.
 name: CD
 
 on:
@@ -42,9 +46,8 @@ jobs:
       AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       AZURE_ENV_NAME: gloss
       AZURE_LOCATION: westus2
-      GLOSS_OAUTH_CLIENT_ID: ${{ vars.GLOSS_OAUTH_CLIENT_ID }}
-      GLOSS_BASE_URL: ${{ vars.GLOSS_BASE_URL }}
-      GLOSS_OAUTH_CLIENT_SECRET: ${{ secrets.GLOSS_OAUTH_CLIENT_SECRET }}
+      AZURE_CONTAINER_REGISTRY_ENDPOINT: ${{ vars.AZURE_CONTAINER_REGISTRY_ENDPOINT }}
+      AZURE_CONTAINER_REGISTRY_NAME: ${{ vars.AZURE_CONTAINER_REGISTRY_NAME }}
     steps:
       - name: Check credentials are configured
         id: guard
@@ -73,14 +76,15 @@ jobs:
 
       # A fresh CI runner has no local azd environment state (that lives only
       # in the gitignored .azure/ folder on whoever's machine ran `azd up`), so
-      # `azd deploy` alone doesn't know the ACR endpoint or other outputs — it
-      # creates a blank environment and fails. `azd provision` re-resolves the
-      # Bicep outputs into this runner's environment first; it's a no-op
-      # against Azure since the resources already match, but it's what
-      # populates AZURE_CONTAINER_REGISTRY_ENDPOINT etc. for the deploy step.
-      - name: Provision Infrastructure
+      # `azd deploy` alone doesn't know which registry to push to. These are
+      # stable, non-secret outputs from the one-time `azd up` -- seed them
+      # directly instead of re-running `azd provision` (which would need
+      # subscription-level permission this identity intentionally doesn't have).
+      - name: Seed environment values
         if: steps.guard.outputs.configured == 'true'
-        run: azd provision --no-prompt
+        run: |
+          azd env set AZURE_CONTAINER_REGISTRY_ENDPOINT "$AZURE_CONTAINER_REGISTRY_ENDPOINT"
+          azd env set AZURE_CONTAINER_REGISTRY_NAME "$AZURE_CONTAINER_REGISTRY_NAME"
 
       # Build the image (remote build in ACR) and roll the Container App.
       - name: Deploy
