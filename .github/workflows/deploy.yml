@@ -13,14 +13,22 @@
 # They are identifiers, not secrets. The workflow no-ops until AZURE_CLIENT_ID is
 # present, so merging this file changes nothing until you're ready.
 #
-# This workflow only ever runs `azd deploy` (build + push image + roll the
-# Container App) — never `azd provision`. `azd provision` re-runs the Bicep
-# template, which is subscription-scoped (it creates the resource group
-# itself), so it needs subscription-level permission; this identity is
-# deliberately scoped to Contributor on rg-gloss only. Re-provisioning from CI
-# would mean widening that back to the whole subscription, which isn't worth
-# it for what should just be "build and roll out the new image". If the infra
-# itself ever needs to change, run `azd provision` locally instead.
+# `azd provision` re-runs the Bicep template on every deploy so infra changes
+# take effect too, not just app code. main.bicep is subscription-scoped (it
+# creates the resource group itself), so submitting/validating that deployment
+# needs subscription-level permission for the deployment operation itself --
+# but NOT for the resources it manages. This identity has two separate grants:
+#   - Contributor, scoped to rg-gloss only (actual resource read/write)
+#   - "Gloss CD Deployment Operator" (custom role, Microsoft.Resources/deployments/*
+#     only), scoped to the subscription (lets ARM validate/create the
+#     deployment; grants no permission over any resource)
+# So this identity can never touch anything outside rg-gloss, even though
+# provisioning requires a subscription-scope deployment.
+#
+# GLOSS_OAUTH_CLIENT_SECRET must also exist as a repo *secret* (Settings →
+# Secrets and variables → Actions → Secrets) — the Bicep template silently
+# falls back to a placeholder if it's missing, which would overwrite the real
+# OAuth secret on the running app.
 name: CD
 
 on:
@@ -46,8 +54,9 @@ jobs:
       AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       AZURE_ENV_NAME: gloss
       AZURE_LOCATION: westus2
-      AZURE_CONTAINER_REGISTRY_ENDPOINT: ${{ vars.AZURE_CONTAINER_REGISTRY_ENDPOINT }}
-      AZURE_CONTAINER_REGISTRY_NAME: ${{ vars.AZURE_CONTAINER_REGISTRY_NAME }}
+      GLOSS_OAUTH_CLIENT_ID: ${{ vars.GLOSS_OAUTH_CLIENT_ID }}
+      GLOSS_BASE_URL: ${{ vars.GLOSS_BASE_URL }}
+      GLOSS_OAUTH_CLIENT_SECRET: ${{ secrets.GLOSS_OAUTH_CLIENT_SECRET }}
     steps:
       - name: Check credentials are configured
         id: guard
@@ -76,15 +85,13 @@ jobs:
 
       # A fresh CI runner has no local azd environment state (that lives only
       # in the gitignored .azure/ folder on whoever's machine ran `azd up`), so
-      # `azd deploy` alone doesn't know which registry to push to. These are
-      # stable, non-secret outputs from the one-time `azd up` -- seed them
-      # directly instead of re-running `azd provision` (which would need
-      # subscription-level permission this identity intentionally doesn't have).
-      - name: Seed environment values
+      # `azd deploy` alone doesn't know the ACR endpoint or other outputs.
+      # `azd provision` re-resolves the Bicep template into this runner's
+      # environment -- a no-op against Azure if nothing changed, or applies
+      # infra changes if something did.
+      - name: Provision Infrastructure
         if: steps.guard.outputs.configured == 'true'
-        run: |
-          azd env set AZURE_CONTAINER_REGISTRY_ENDPOINT "$AZURE_CONTAINER_REGISTRY_ENDPOINT"
-          azd env set AZURE_CONTAINER_REGISTRY_NAME "$AZURE_CONTAINER_REGISTRY_NAME"
+        run: azd provision --no-prompt
 
       # Build the image (remote build in ACR) and roll the Container App.
       - name: Deploy
