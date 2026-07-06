@@ -1,17 +1,22 @@
 # CD — deploy to Azure Container Apps on push to main, after CI passes.
 #
-# Auth is OIDC (federated credentials) — NO secrets stored in GitHub. Once an
-# admin runs `azd pipeline config` (or manually creates an app registration with
-# a federated credential for this repo + grants it Contributor on rg-gloss), set
-# these three repo VARIABLES (Settings → Secrets and variables → Actions →
-# Variables), and this workflow goes live:
+# Auth is OIDC (federated credentials) — NO Azure secrets stored in GitHub.
+# `azd pipeline config` sets this up: a user-assigned managed identity with a
+# federated credential scoped to `repo:<owner>/<repo>:ref:refs/heads/main`,
+# Contributor scoped to just the rg-gloss resource group (not the whole
+# subscription), and these repo VARIABLES:
 #
-#   AZURE_CLIENT_ID         (the app registration's client id)
+#   AZURE_CLIENT_ID         (the managed identity's client id)
 #   AZURE_TENANT_ID
 #   AZURE_SUBSCRIPTION_ID
 #
 # They are identifiers, not secrets. The workflow no-ops until AZURE_CLIENT_ID is
 # present, so merging this file changes nothing until you're ready.
+#
+# GLOSS_OAUTH_CLIENT_SECRET must also exist as a repo *secret* (Settings →
+# Secrets and variables → Actions → Secrets) — the Bicep template silently
+# falls back to a placeholder if it's missing, which would overwrite the real
+# OAuth secret on the running app.
 name: CD
 
 on:
@@ -37,6 +42,9 @@ jobs:
       AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       AZURE_ENV_NAME: gloss
       AZURE_LOCATION: westus2
+      GLOSS_OAUTH_CLIENT_ID: ${{ vars.GLOSS_OAUTH_CLIENT_ID }}
+      GLOSS_BASE_URL: ${{ vars.GLOSS_BASE_URL }}
+      GLOSS_OAUTH_CLIENT_SECRET: ${{ secrets.GLOSS_OAUTH_CLIENT_SECRET }}
     steps:
       - name: Check credentials are configured
         id: guard
@@ -63,8 +71,18 @@ jobs:
             --federated-credential-provider github \
             --tenant-id "$AZURE_TENANT_ID"
 
+      # A fresh CI runner has no local azd environment state (that lives only
+      # in the gitignored .azure/ folder on whoever's machine ran `azd up`), so
+      # `azd deploy` alone doesn't know the ACR endpoint or other outputs — it
+      # creates a blank environment and fails. `azd provision` re-resolves the
+      # Bicep outputs into this runner's environment first; it's a no-op
+      # against Azure since the resources already match, but it's what
+      # populates AZURE_CONTAINER_REGISTRY_ENDPOINT etc. for the deploy step.
+      - name: Provision Infrastructure
+        if: steps.guard.outputs.configured == 'true'
+        run: azd provision --no-prompt
+
       # Build the image (remote build in ACR) and roll the Container App.
-      # Provisioning already happened; deploy is enough for app updates.
       - name: Deploy
         if: steps.guard.outputs.configured == 'true'
         run: azd deploy --no-prompt
