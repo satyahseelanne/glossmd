@@ -1,11 +1,26 @@
-# Gloss
+<p align="center">
+  <img src="apps/web/public/favicon.svg" width="72" height="72" alt="Gloss logo">
+</p>
 
-Word-style review comments for markdown that lives in git. Comments are stored
-append-only in a `.gloss/` directory beside the document, so review data is
-**portable by default** — no database, no central server owning it, readable by
-any tool that implements the protocol.
+<h1 align="center">Gloss</h1>
+
+<p align="center">Word-style review comments for markdown that lives in git.</p>
+
+<p align="center">
+  <a href="https://github.com/satyahseelanne/glossmd/actions/workflows/ci.yml"><img src="https://github.com/satyahseelanne/glossmd/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-8a5d22.svg" alt="MIT license"></a>
+  <img src="https://img.shields.io/badge/node-%3E%3D20-8a5d22.svg?logo=node.js&logoColor=white" alt="Node >= 20">
+</p>
+
+Comments are stored append-only in a `.gloss/` directory beside the document,
+so review data is **portable by default** — no database, no central server
+owning it, readable by any tool that implements the protocol.
 
 A comment is a *gloss* on the text: an annotation in the margin.
+
+<p align="center">
+  <img src="docs/screenshot.svg" width="820" alt="Gloss reviewer app: a file tree, the rendered document, and a comments sidebar with open review threads">
+</p>
 
 ## Why
 
