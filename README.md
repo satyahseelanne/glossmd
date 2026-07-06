@@ -34,9 +34,10 @@ gloss/
 │   ├── core/      @gloss/core   — protocol logic: ULIDs, actions, reducer, checkpoints  ✅ tested
 │   ├── anchor/    @gloss/anchor — capture + fuzzy re-locate text anchors                ✅ tested
 │   ├── git/       @gloss/git    — host adapters + pull-rebase-push commit loop          ✅ tested
-│   └── server/    @gloss/server — thin backend: OAuth, repo reads, commit actions       ▶ runs (dev)
+│   └── server/    @gloss/server — backend: GitHub OAuth, repo reads, commit actions     ✅ runs
 ├── apps/
-│   └── web/       @gloss/web    — React reviewer app                                    ⛏ scaffold (needs install)
+│   └── web/       @gloss/web    — React reviewer app (WYSIWYG edit, tree, comments)      ✅ runs
+├── infra/         Bicep for Azure Container Apps (deploy via azd)
 ├── examples/
 │   └── repo/      a sample docs repo with a seeded .gloss/ log
 └── docs/
@@ -44,8 +45,8 @@ gloss/
     └── mockup.html   interactive UI mockup
 ```
 
-Status legend: ✅ implemented + unit-tested · ▶ runs locally in dev mode ·
-⛏ scaffold that needs `npm install` (React/Vite) to run.
+Status legend: ✅ implemented — core/anchor/git are unit-tested; server and web
+run locally and deploy to Azure Container Apps.
 
 ## What runs today, with zero install
 
@@ -67,8 +68,39 @@ curl -X POST localhost:8787/reviews/actions -H 'content-type: application/json' 
 curl 'http://localhost:8787/reviews?path=design/design.md'
 ```
 
-The web app (`apps/web`) is wired to these routes but needs `npm install` to pull
-React and Vite before `npm run dev`.
+The web app (`apps/web`) is a working React reviewer — WYSIWYG markdown editing,
+a file tree with document/folder create and delete, select-to-comment threading,
+and shareable deep links. After `npm install`, run it against the dev server:
+
+```bash
+npm run server:dev              # backend on :8787 (in-memory host, no token)
+cd apps/web && npm run dev      # Vite dev server, proxies the API to :8787
+```
+
+## Running against real GitHub
+
+The server picks its mode at boot from the environment:
+
+- **`--dev`** — in-memory host, no token or network. For local UI work.
+- **Personal access token** (`GITHUB_TOKEN`) — single-user, reads/writes one repo.
+- **OAuth** (`GLOSS_OAUTH_CLIENT_ID` / `GLOSS_OAUTH_CLIENT_SECRET`) — multi-user;
+  each reviewer signs in with their own GitHub account.
+
+Copy `.env.example` to `.env` and fill in the values for the mode you want. Never
+commit `.env` (it is gitignored).
+
+## Deploying
+
+`infra/` holds Bicep that provisions Azure Container Apps (plus ACR and Log
+Analytics). With the [Azure Developer CLI](https://aka.ms/azd):
+
+```bash
+azd up        # provision + build + deploy
+azd deploy    # redeploy after code changes
+```
+
+The OAuth client secret is stored as a Container Apps secret and injected as an
+environment variable — it is never baked into the image or committed to the repo.
 
 ## The two correctness guarantees, proven in tests
 
@@ -83,8 +115,9 @@ Plus, at the git layer: **no lost update under concurrent commits to one branch*
 
 ## Roadmap
 
-- Real GitHub OAuth + per-branch write serialization in `@gloss/server`.
-- Flesh out `@gloss/web` to the mockup's fidelity; add real-time refresh.
+- Per-branch write serialization in `@gloss/server` (queue concurrent commits to
+  one head) and durable, shared sessions to scale past a single replica.
+- Flesh out `@gloss/web` toward the mockup's fidelity; add real-time refresh.
 - A `@gloss/vscode` extension implementing the same protocol against local git —
   no backend needed, fully interoperable with the web app's `.gloss/` logs.
-- Compaction job + checkpoint GC.
+- A background compaction job + checkpoint GC.

@@ -8,7 +8,7 @@
 #
 #   AZURE_CLIENT_ID         (the app registration's client id)
 #   AZURE_TENANT_ID
-#   AZURE_SUBSCRIPTION_ID   (d954ec03-225b-4de7-9fe8-3f7436254f8a)
+#   AZURE_SUBSCRIPTION_ID
 #
 # They are identifiers, not secrets. The workflow no-ops until AZURE_CLIENT_ID is
 # present, so merging this file changes nothing until you're ready.

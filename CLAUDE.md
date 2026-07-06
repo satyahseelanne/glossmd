@@ -52,8 +52,9 @@ These were deliberate; please don't quietly reverse them.
 packages/core    @gloss/core   protocol logic: ULIDs, actions, reducer, checkpoints   TESTED
 packages/anchor  @gloss/anchor capture + fuzzy re-locate text anchors                 TESTED
 packages/git     @gloss/git    host adapters + pull-rebase-push commit loop           TESTED
-packages/server  @gloss/server thin backend: 6 routes; runs offline in --dev mode     RUNS (dev)
-apps/web         @gloss/web    React reviewer app                                     SCAFFOLD (needs install)
+packages/server  @gloss/server backend: OAuth/PAT/dev modes; serves the built SPA     RUNS + DEPLOYS
+apps/web         @gloss/web    React reviewer app (WYSIWYG edit, tree, comments)      RUNS
+infra/           Bicep for Azure Container Apps (deploy via azd)                       DEPLOYS
 examples/repo    sample docs repo with a seeded .gloss/ log
 docs/protocol.md full design doc (all the reasoning)
 docs/mockup.html interactive UI mockup (the target experience)
@@ -61,23 +62,29 @@ docs/mockup.html interactive UI mockup (the target experience)
 
 ## State of play — what's real vs. not
 
-- `core`, `anchor`, `git` are real and unit-tested (20 tests total). The git tests
-  prove the no-lost-update guarantee under concurrent commits using an in-memory
-  host. These do **not** need a network.
-- `server` is a real zero-dependency Node server with all six routes. It boots in
-  `--dev` mode over an in-memory host (no token/network) and the full read/write
-  round trip was verified by hand.
-- `web` is a working skeleton wired to the protocol (reduce + anchor + API) but was
-  **never run** — it needs `npm install` (React/Vite/marked).
-- `GitHubHost` (packages/git/src/github.js) has correct REST endpoint shapes but
-  was **never exercised against the live API** — no network in the build env. It's
-  driven by the same commit engine the in-memory tests cover.
+- `core`, `anchor`, `git` are real and unit-tested. The git tests prove the
+  no-lost-update guarantee under concurrent commits using an in-memory host.
+  These do **not** need a network.
+- `server` is a real zero-dependency Node server. It picks a mode at boot: `--dev`
+  (in-memory host, no token), PAT (`GITHUB_TOKEN`, single-user), or OAuth
+  (`GLOSS_OAUTH_CLIENT_ID`/`SECRET`, multi-user). It also serves the built web
+  app. Routes cover auth, repo/branch/tree/file reads, file write + delete, and
+  review actions + compaction.
+- `web` is a working React app: WYSIWYG markdown editing (TipTap), a file tree
+  with document/folder create + delete, select-to-comment threading, and
+  shareable deep links. Runs via Vite against the dev server.
+- `GitHubHost` (packages/git/src/github.js) backs the OAuth flow and has been
+  exercised against the live GitHub API. The commit loop is the same engine the
+  in-memory tests cover.
+- Deployment: `infra/` Bicep provisions Azure Container Apps (+ ACR, Log
+  Analytics); the app deploys with `azd up` / `azd deploy`. The OAuth client
+  secret lives as a Container Apps secret, never in the repo or image.
 
 ## How to run
 
 ```bash
 npm install            # wires workspace deps; pulls React/Vite for the web app
-npm test               # 20 tests across core, anchor, git
+npm test               # tests across core, anchor, git
 npm run demo           # multi-reviewer session + compaction + stale-edit self-heal
 npm run server:dev     # backend on :8787 over an in-memory host
 # then, in another shell:
@@ -85,21 +92,19 @@ cd apps/web && npm run dev   # vite dev server; proxies API to :8787
 ```
 
 `packages/core` tests run with zero install (relative imports). Everything else
-needs `npm install` first.
+needs `npm install` first. For real GitHub, copy `.env.example` to `.env` and
+fill in a PAT or OAuth credentials; `.env` is gitignored.
 
-## Good next steps (the remaining work is wiring + verification, not new design)
+## Good next steps
 
-1. `npm install && npm test` — confirm all 20 pass in this environment.
-2. Run `apps/web` against `npm run server:dev` and confirm the data path works in
-   a browser: open a file, select text, comment, see it persist.
-3. Build the real OAuth flow in `@gloss/server` (`/auth/login`, `/auth/callback`)
-   and construct a `GitHubHost` per request from the reviewer's token.
-4. Point it at a real test repo and verify the commit loop end-to-end against the
-   live GitHub API (the one path never tested live).
-5. Add a per-branch write lock/queue in the server so our own concurrent requests
-   don't collide on the same head.
-6. Then: flesh out the web UI toward `docs/mockup.html` fidelity; add a compaction
-   job + checkpoint GC.
+1. Per-branch write serialization in the server so concurrent requests to the
+   same head queue instead of racing (the in-memory retry loop handles git-level
+   collisions; this is about our own replicas).
+2. Durable, shared sessions so the app can scale past a single replica without
+   logging reviewers out on restart.
+3. Flesh out the web UI toward `docs/mockup.html` fidelity; add real-time refresh.
+4. A background compaction job + checkpoint GC.
+5. A `@gloss/vscode` extension implementing the same protocol against local git.
 
 ## Conventions
 

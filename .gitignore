@@ -9,5 +9,8 @@ build/
 coverage/
 .vite/
 
+# azd environment (may contain subscription ids, endpoints, and secrets)
+.azure/
+
 # Claude Code local (machine-specific) settings
 .claude/settings.local.json
